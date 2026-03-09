@@ -2,23 +2,31 @@ import { useState, useEffect, useCallback } from "react";
 
 // Simulated SCADA data generator
 export interface PowerMetrics {
-  totalGeneration: number; // MW
-  totalLoad: number; // MW
-  frequency: number; // Hz
-  voltage: number; // kV
+  totalGeneration: number;
+  totalLoad: number;
+  frequency: number;
+  voltage: number;
   powerFactor: number;
-  efficiency: number; // %
+  efficiency: number;
 }
 
 export interface GeneratorData {
   id: string;
   name: string;
   status: "running" | "standby" | "fault" | "maintenance";
-  output: number; // MW
-  maxOutput: number; // MW
+  output: number;
+  maxOutput: number;
   rpm: number;
-  temperature: number; // °C
-  voltage: number; // kV
+  temperature: number;
+  voltage: number;
+}
+
+export interface EquipmentData {
+  id: string;
+  name: string;
+  type: "transformer" | "switchgear" | "breaker" | "bus";
+  status: "online" | "offline" | "warning" | "fault";
+  metrics: Record<string, { value: string; unit: string }>;
 }
 
 export interface AlarmData {
@@ -42,6 +50,71 @@ const generators: GeneratorData[] = [
   { id: "GEN-02", name: "Generator 2", status: "running", output: 38, maxOutput: 60, rpm: 3000, temperature: 68, voltage: 11 },
   { id: "GEN-03", name: "Generator 3", status: "standby", output: 0, maxOutput: 60, rpm: 0, temperature: 25, voltage: 0 },
   { id: "GEN-04", name: "Generator 4", status: "running", output: 52, maxOutput: 60, rpm: 3000, temperature: 76, voltage: 11 },
+];
+
+const equipmentList: EquipmentData[] = [
+  {
+    id: "XFMR-1", name: "Transformer 1", type: "transformer", status: "online",
+    metrics: {
+      "Primary V": { value: "132", unit: "kV" },
+      "Secondary V": { value: "11", unit: "kV" },
+      "Load": { value: "82", unit: "%" },
+      "Oil Temp": { value: "65", unit: "°C" },
+      "Tap Position": { value: "7", unit: "" },
+      "Rating": { value: "90", unit: "MVA" },
+    },
+  },
+  {
+    id: "XFMR-2", name: "Transformer 2", type: "transformer", status: "online",
+    metrics: {
+      "Primary V": { value: "132", unit: "kV" },
+      "Secondary V": { value: "11", unit: "kV" },
+      "Load": { value: "58", unit: "%" },
+      "Oil Temp": { value: "52", unit: "°C" },
+      "Tap Position": { value: "6", unit: "" },
+      "Rating": { value: "90", unit: "MVA" },
+    },
+  },
+  {
+    id: "SWG-1", name: "Main Switchgear", type: "switchgear", status: "online",
+    metrics: {
+      "Voltage": { value: "11", unit: "kV" },
+      "Sections": { value: "4", unit: "" },
+      "Active Feeders": { value: "12", unit: "" },
+      "Bus Coupler": { value: "Closed", unit: "" },
+      "Arc Flash": { value: "24.5", unit: "cal/cm²" },
+    },
+  },
+  {
+    id: "CB-01", name: "Circuit Breaker 1", type: "breaker", status: "online",
+    metrics: {
+      "State": { value: "Closed", unit: "" },
+      "Current": { value: "2450", unit: "A" },
+      "Rating": { value: "3150", unit: "A" },
+      "Trip Count": { value: "14", unit: "" },
+      "Last Maintenance": { value: "2025-12-01", unit: "" },
+    },
+  },
+  {
+    id: "CB-02", name: "Circuit Breaker 2", type: "breaker", status: "online",
+    metrics: {
+      "State": { value: "Closed", unit: "" },
+      "Current": { value: "1820", unit: "A" },
+      "Rating": { value: "3150", unit: "A" },
+      "Trip Count": { value: "8", unit: "" },
+      "Last Maintenance": { value: "2026-01-15", unit: "" },
+    },
+  },
+  {
+    id: "BUS-1", name: "132kV Main Bus", type: "bus", status: "online",
+    metrics: {
+      "Voltage": { value: "132.4", unit: "kV" },
+      "Frequency": { value: "50.01", unit: "Hz" },
+      "Fault Level": { value: "31.5", unit: "kA" },
+      "Protection": { value: "Active", unit: "" },
+      "Earth Fault": { value: "Normal", unit: "" },
+    },
+  },
 ];
 
 const alarmMessages = [
@@ -69,6 +142,7 @@ export function useScadaData() {
   });
 
   const [gens, setGens] = useState<GeneratorData[]>(generators);
+  const [equipment, setEquipment] = useState<EquipmentData[]>(equipmentList);
   const [alarms, setAlarms] = useState<AlarmData[]>(() => {
     const now = new Date();
     return alarmMessages.slice(0, 4).map((a, i) => ({
@@ -122,6 +196,25 @@ export function useScadaData() {
         )
       );
 
+      // Jitter equipment metrics
+      setEquipment((prev) =>
+        prev.map((eq) => {
+          const updated = { ...eq, metrics: { ...eq.metrics } };
+          if (eq.type === "transformer") {
+            updated.metrics["Oil Temp"] = { value: jitter(parseFloat(eq.metrics["Oil Temp"].value), 2).toFixed(1), unit: "°C" };
+            updated.metrics["Load"] = { value: Math.round(jitter(parseFloat(eq.metrics["Load"].value), 3)).toString(), unit: "%" };
+          }
+          if (eq.type === "breaker") {
+            updated.metrics["Current"] = { value: Math.round(jitter(parseFloat(eq.metrics["Current"].value), 50)).toString(), unit: "A" };
+          }
+          if (eq.type === "bus") {
+            updated.metrics["Voltage"] = { value: jitter(132, 2).toFixed(1), unit: "kV" };
+            updated.metrics["Frequency"] = { value: jitter(50, 0.08).toFixed(2), unit: "Hz" };
+          }
+          return updated;
+        })
+      );
+
       setTrendData((prev) => {
         const now = new Date();
         const newPoint: TrendPoint = {
@@ -133,7 +226,6 @@ export function useScadaData() {
         return [...prev.slice(1), newPoint];
       });
 
-      // Randomly add alarms
       if (Math.random() < 0.1) {
         const template = alarmMessages[Math.floor(Math.random() * alarmMessages.length)];
         setAlarms((prev) => [
@@ -151,5 +243,5 @@ export function useScadaData() {
     return () => clearInterval(interval);
   }, []);
 
-  return { metrics, generators: gens, alarms, trendData, acknowledgeAlarm };
+  return { metrics, generators: gens, equipment, alarms, trendData, acknowledgeAlarm };
 }
