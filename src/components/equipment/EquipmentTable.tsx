@@ -23,6 +23,7 @@ interface EquipmentTableProps {
 }
 
 export function EquipmentTable({ equipment, connections, isLoading, onEdit, onDelete }: EquipmentTableProps) {
+  const navigate = useNavigate();
   const getConnectionCount = (id: string) =>
     connections.filter((c) => c.from_equipment_id === id || c.to_equipment_id === id).length;
 
