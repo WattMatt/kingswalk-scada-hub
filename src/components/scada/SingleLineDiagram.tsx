@@ -66,7 +66,7 @@ export function SingleLineDiagram({ generators }: SingleLineDiagramProps) {
                 <text x={x} y="285" textAnchor="middle" fill="hsl(210, 20%, 80%)" fontSize="10" fontFamily="IBM Plex Mono">
                   {gen.id}
                 </text>
-                <text x={x} y="298" textAnchor="middle" fill="hsl(215, 15%, 55%)" fontSize="8" fontFamily="IBM Plex Mono" textTransform="uppercase">
+                <text x={x} y="298" textAnchor="middle" fill="hsl(215, 15%, 55%)" fontSize="8" fontFamily="IBM Plex Mono">
                   {gen.status.toUpperCase()}
                 </text>
               </g>
