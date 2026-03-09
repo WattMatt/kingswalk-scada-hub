@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from "react";
-import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { ZoomIn, ZoomOut, Maximize2, Lock, Unlock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GeneratorData } from "@/hooks/useScadaData";
+import { useMarkerStore, type MarkerConfig } from "@/hooks/useMarkerStore";
 
 const statusColor: Record<string, string> = {
   running: "bg-scada-green",
@@ -17,14 +18,12 @@ const statusGlow: Record<string, string> = {
   maintenance: "",
 };
 
-// Generator positions as percentage of rendered PDF dimensions
-// Adjust these to match actual equipment locations on the floor plan
-const generatorPositions = [
-  { left: "20%", top: "40%" },
-  { left: "35%", top: "40%" },
-  { left: "50%", top: "40%" },
-  { left: "65%", top: "40%" },
-];
+const typeColor: Record<string, string> = {
+  generator: "bg-scada-green",
+  transformer: "bg-scada-amber",
+  switchgear: "bg-blue-500",
+  custom: "bg-purple-500",
+};
 
 interface FloorPlanViewProps {
   generators: GeneratorData[];
@@ -32,11 +31,23 @@ interface FloorPlanViewProps {
 
 export function FloorPlanView({ generators }: FloorPlanViewProps) {
   const [zoom, setZoom] = useState(100);
+  const [editMode, setEditMode] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { markers, updateMarkerPosition } = useMarkerStore();
+
+  // Drag state
+  const dragRef = useRef<{
+    markerId: string;
+    startX: number;
+    startY: number;
+    startLeft: number;
+    startTop: number;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,11 +98,63 @@ export function FloorPlanView({ generators }: FloorPlanViewProps) {
     return () => { cancelled = true; };
   }, [zoom]);
 
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent, marker: MarkerConfig) => {
+      if (!editMode) return;
+      e.preventDefault();
+      e.stopPropagation();
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      dragRef.current = {
+        markerId: marker.id,
+        startX: e.clientX,
+        startY: e.clientY,
+        startLeft: marker.left,
+        startTop: marker.top,
+      };
+    },
+    [editMode]
+  );
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!dragRef.current || !overlayRef.current) return;
+      const overlay = overlayRef.current;
+      const rect = overlay.getBoundingClientRect();
+      const dx = e.clientX - dragRef.current.startX;
+      const dy = e.clientY - dragRef.current.startY;
+      const newLeft = Math.max(0, Math.min(100, dragRef.current.startLeft + (dx / rect.width) * 100));
+      const newTop = Math.max(0, Math.min(100, dragRef.current.startTop + (dy / rect.height) * 100));
+      updateMarkerPosition(dragRef.current.markerId, Math.round(newLeft * 10) / 10, Math.round(newTop * 10) / 10);
+    },
+    [updateMarkerPosition]
+  );
+
+  const handlePointerUp = useCallback(() => {
+    dragRef.current = null;
+  }, []);
+
+  const getLinkedGenerator = (marker: MarkerConfig): GeneratorData | undefined => {
+    if (marker.linkedGenerator) {
+      return generators.find((g) => g.id === marker.linkedGenerator);
+    }
+    return undefined;
+  };
+
   return (
     <div className="scada-panel p-4 h-full flex flex-col">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold uppercase tracking-wider">Floor Plan Layout</h3>
         <div className="flex items-center gap-1">
+          <Button
+            variant={editMode ? "default" : "ghost"}
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setEditMode(!editMode)}
+            title={editMode ? "Lock markers" : "Unlock markers for dragging"}
+          >
+            {editMode ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+          </Button>
+          <div className="w-px h-4 bg-border mx-1" />
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom((z) => Math.max(50, z - 25))}>
             <ZoomOut className="w-3.5 h-3.5" />
           </Button>
@@ -104,6 +167,13 @@ export function FloorPlanView({ generators }: FloorPlanViewProps) {
           </Button>
         </div>
       </div>
+
+      {editMode && (
+        <div className="flex items-center gap-2 mb-3 px-2 py-1.5 rounded bg-scada-amber/10 border border-scada-amber/30">
+          <Unlock className="w-3 h-3 text-scada-amber" />
+          <span className="text-xs font-mono text-scada-amber">Edit mode — drag markers to reposition</span>
+        </div>
+      )}
 
       {/* Legend */}
       <div className="flex items-center gap-4 mb-3 text-xs font-mono">
@@ -129,40 +199,73 @@ export function FloorPlanView({ generators }: FloorPlanViewProps) {
             <span className="text-sm font-mono text-destructive">{error}</span>
           </div>
         )}
-        <div className="relative inline-block" style={{ width: canvasSize.width || "100%", height: canvasSize.height || "auto" }}>
+        <div
+          ref={overlayRef}
+          className="relative inline-block"
+          style={{ width: canvasSize.width || "100%", height: canvasSize.height || "auto" }}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+        >
           <canvas ref={canvasRef} className="block" />
 
-          {/* Generator overlay markers */}
-          {!loading && generators.map((gen, i) => {
-            const pos = generatorPositions[i] || { left: `${20 + i * 15}%`, top: "40%" };
-            return (
-              <div
-                key={gen.id}
-                className="absolute z-10 group cursor-pointer"
-                style={{ left: pos.left, top: pos.top, transform: "translate(-50%, -50%)" }}
-              >
-                {gen.status === "running" && (
-                  <div className="absolute -inset-2 rounded-full bg-scada-green/20 animate-pulse-glow" />
-                )}
+          {/* Marker overlays */}
+          {!loading &&
+            markers.map((marker) => {
+              const gen = getLinkedGenerator(marker);
+              const status = gen?.status || "maintenance";
+              const color = gen ? statusColor[status] : typeColor[marker.type];
+              const glow = gen ? statusGlow[status] || "" : "";
+
+              return (
                 <div
-                  className={`relative w-7 h-7 rounded-full ${statusColor[gen.status]} ${statusGlow[gen.status]} flex items-center justify-center border-2 border-background`}
+                  key={marker.id}
+                  className={`absolute z-10 group ${editMode ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
+                  style={{
+                    left: `${marker.left}%`,
+                    top: `${marker.top}%`,
+                    transform: "translate(-50%, -50%)",
+                    touchAction: "none",
+                  }}
+                  onPointerDown={(e) => handlePointerDown(e, marker)}
                 >
-                  <span className="text-[9px] font-mono font-bold text-background">G{i + 1}</span>
-                </div>
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block pointer-events-none">
-                  <div className="bg-card border border-border rounded px-2 py-1.5 shadow-lg whitespace-nowrap">
-                    <p className="text-xs font-mono font-bold text-foreground">{gen.id}</p>
-                    <p className="text-[10px] font-mono text-muted-foreground">
-                      {gen.output} MW / {gen.maxOutput} MW
-                    </p>
-                    <p className="text-[10px] font-mono text-muted-foreground">
-                      {gen.temperature}°C • {gen.status.toUpperCase()}
-                    </p>
+                  {gen?.status === "running" && (
+                    <div className="absolute -inset-2 rounded-full bg-scada-green/20 animate-pulse-glow" />
+                  )}
+                  <div
+                    className={`relative w-7 h-7 rounded-full ${color} ${glow} flex items-center justify-center border-2 border-background ${editMode ? "ring-2 ring-scada-amber/50 ring-offset-1 ring-offset-background" : ""}`}
+                  >
+                    <span className="text-[9px] font-mono font-bold text-background">{marker.label}</span>
                   </div>
+
+                  {/* Tooltip */}
+                  {!editMode && gen && (
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block pointer-events-none">
+                      <div className="bg-card border border-border rounded px-2 py-1.5 shadow-lg whitespace-nowrap">
+                        <p className="text-xs font-mono font-bold text-foreground">{gen.id}</p>
+                        <p className="text-[10px] font-mono text-muted-foreground">
+                          {gen.output} MW / {gen.maxOutput} MW
+                        </p>
+                        <p className="text-[10px] font-mono text-muted-foreground">
+                          {gen.temperature}°C • {status.toUpperCase()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Edit mode coordinate tooltip */}
+                  {editMode && (
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 pointer-events-none">
+                      <div className="bg-card border border-border rounded px-1.5 py-0.5 shadow-lg whitespace-nowrap">
+                        <p className="text-[9px] font-mono text-muted-foreground">
+                          {marker.left.toFixed(1)}%, {marker.top.toFixed(1)}%
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
       </div>
     </div>

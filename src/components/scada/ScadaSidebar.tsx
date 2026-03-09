@@ -26,6 +26,7 @@ const navItems = [
   { title: "Process", url: "/process", icon: Activity },
   { title: "Alarms", url: "/alarms", icon: AlertTriangle },
   { title: "Generators", url: "/generators", icon: Zap },
+  { title: "Settings", url: "/settings", icon: Settings },
 ];
 
 export function ScadaSidebar() {
