@@ -14,7 +14,111 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      equipment: {
+        Row: {
+          created_at: string
+          id: string
+          installation_date: string | null
+          location: string | null
+          manufacturer: string | null
+          marker_left: number | null
+          marker_top: number | null
+          model: string | null
+          name: string
+          notes: string | null
+          protection_settings: string | null
+          rating: number | null
+          rating_unit: string | null
+          serial_number: string | null
+          status: Database["public"]["Enums"]["equipment_status"]
+          tag_number: string
+          type: Database["public"]["Enums"]["equipment_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          installation_date?: string | null
+          location?: string | null
+          manufacturer?: string | null
+          marker_left?: number | null
+          marker_top?: number | null
+          model?: string | null
+          name: string
+          notes?: string | null
+          protection_settings?: string | null
+          rating?: number | null
+          rating_unit?: string | null
+          serial_number?: string | null
+          status?: Database["public"]["Enums"]["equipment_status"]
+          tag_number: string
+          type: Database["public"]["Enums"]["equipment_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          installation_date?: string | null
+          location?: string | null
+          manufacturer?: string | null
+          marker_left?: number | null
+          marker_top?: number | null
+          model?: string | null
+          name?: string
+          notes?: string | null
+          protection_settings?: string | null
+          rating?: number | null
+          rating_unit?: string | null
+          serial_number?: string | null
+          status?: Database["public"]["Enums"]["equipment_status"]
+          tag_number?: string
+          type?: Database["public"]["Enums"]["equipment_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      equipment_connections: {
+        Row: {
+          connection_type: string | null
+          created_at: string
+          from_equipment_id: string
+          id: string
+          label: string | null
+          to_equipment_id: string
+        }
+        Insert: {
+          connection_type?: string | null
+          created_at?: string
+          from_equipment_id: string
+          id?: string
+          label?: string | null
+          to_equipment_id: string
+        }
+        Update: {
+          connection_type?: string | null
+          created_at?: string
+          from_equipment_id?: string
+          id?: string
+          label?: string | null
+          to_equipment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_connections_from_equipment_id_fkey"
+            columns: ["from_equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_connections_to_equipment_id_fkey"
+            columns: ["to_equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +127,24 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      equipment_status:
+        | "online"
+        | "offline"
+        | "standby"
+        | "warning"
+        | "fault"
+        | "maintenance"
+      equipment_type:
+        | "generator"
+        | "transformer"
+        | "inverter"
+        | "switchgear"
+        | "breaker"
+        | "bus"
+        | "panel"
+        | "meter"
+        | "vfd"
+        | "motor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +271,27 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      equipment_status: [
+        "online",
+        "offline",
+        "standby",
+        "warning",
+        "fault",
+        "maintenance",
+      ],
+      equipment_type: [
+        "generator",
+        "transformer",
+        "inverter",
+        "switchgear",
+        "breaker",
+        "bus",
+        "panel",
+        "meter",
+        "vfd",
+        "motor",
+      ],
+    },
   },
 } as const
