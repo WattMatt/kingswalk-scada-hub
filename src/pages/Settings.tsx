@@ -16,8 +16,12 @@ const MARKER_TYPES = [
   { value: "generator", label: "Generator" },
   { value: "transformer", label: "Transformer" },
   { value: "switchgear", label: "Switchgear" },
+  { value: "breaker", label: "Breaker" },
+  { value: "bus", label: "Bus" },
   { value: "custom", label: "Custom" },
 ] as const;
+
+const EQUIPMENT_IDS = ["XFMR-1", "XFMR-2", "SWG-1", "CB-01", "CB-02", "BUS-1"];
 
 const Settings = () => {
   const { markers, addMarker, removeMarker, updateMarkerPosition, resetMarkers } = useMarkerStore();
@@ -27,23 +31,27 @@ const Settings = () => {
   const [newLabel, setNewLabel] = useState("");
   const [newType, setNewType] = useState<MarkerConfig["type"]>("generator");
   const [newLinkedGen, setNewLinkedGen] = useState<string>("");
+  const [newLinkedEquip, setNewLinkedEquip] = useState<string>("");
 
   const handleAdd = () => {
     if (!newLabel.trim()) {
       toast.error("Label is required");
       return;
     }
+    const isGen = newType === "generator";
     const marker: MarkerConfig = {
       id: `marker-${Date.now()}`,
       label: newLabel.trim(),
       type: newType,
       left: 50,
       top: 50,
-      linkedGenerator: newType === "generator" && newLinkedGen ? newLinkedGen : undefined,
+      linkedGenerator: isGen && newLinkedGen && newLinkedGen !== "none" ? newLinkedGen : undefined,
+      linkedEquipment: !isGen && newLinkedEquip && newLinkedEquip !== "none" ? newLinkedEquip : undefined,
     };
     addMarker(marker);
     setNewLabel("");
     setNewLinkedGen("");
+    setNewLinkedEquip("");
     toast.success(`Marker "${marker.label}" added — go to Process tab to drag it into position`);
   };
 
@@ -106,20 +114,34 @@ const Settings = () => {
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-mono">Link Generator</Label>
-                    <Select value={newLinkedGen} onValueChange={setNewLinkedGen}>
-                      <SelectTrigger className="h-8 text-xs font-mono bg-background">
-                        <SelectValue placeholder="None" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none" className="text-xs font-mono">None</SelectItem>
-                        {GENERATOR_IDS.map((id) => (
-                          <SelectItem key={id} value={id} className="text-xs font-mono">
-                            {id}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label className="text-xs font-mono">
+                      {newType === "generator" ? "Link Generator" : "Link Equipment"}
+                    </Label>
+                    {newType === "generator" ? (
+                      <Select value={newLinkedGen} onValueChange={setNewLinkedGen}>
+                        <SelectTrigger className="h-8 text-xs font-mono bg-background">
+                          <SelectValue placeholder="None" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none" className="text-xs font-mono">None</SelectItem>
+                          {GENERATOR_IDS.map((id) => (
+                            <SelectItem key={id} value={id} className="text-xs font-mono">{id}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Select value={newLinkedEquip} onValueChange={setNewLinkedEquip}>
+                        <SelectTrigger className="h-8 text-xs font-mono bg-background">
+                          <SelectValue placeholder="None" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none" className="text-xs font-mono">None</SelectItem>
+                          {EQUIPMENT_IDS.map((id) => (
+                            <SelectItem key={id} value={id} className="text-xs font-mono">{id}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                   <Button onClick={handleAdd} size="sm" className="h-8 gap-1.5">
                     <Plus className="w-3.5 h-3.5" />
