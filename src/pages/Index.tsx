@@ -10,6 +10,8 @@ import { SingleLineDiagram } from "@/components/scada/SingleLineDiagram";
 
 const Index = () => {
   const { metrics, generators, alarms, trendData, acknowledgeAlarm } = useScadaData();
+  const { data: dbEquipment = [] } = useEquipment();
+  const { data: connections = [] } = useEquipmentConnections();
 
   const freqStatus = Math.abs(metrics.frequency - 50) > 0.05 ? "warning" : "normal";
   const genLoadRatio = metrics.totalLoad / metrics.totalGeneration;
