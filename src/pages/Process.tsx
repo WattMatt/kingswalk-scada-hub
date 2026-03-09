@@ -49,7 +49,7 @@ const Process = () => {
         {/* Tab content */}
         <div className="flex-1 min-h-0">
           {activeTab === "floorplan" && (
-            <FloorPlanView generators={generators} equipment={simEquipment} />
+            <FloorPlanView />
           )}
           {activeTab === "sld" && (
             <SingleLineDiagram equipment={dbEquipment} connections={connections} />
