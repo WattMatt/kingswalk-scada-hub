@@ -1,10 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { GeneratorData } from "@/hooks/useScadaData";
-import * as pdfjsLib from "pdfjs-dist";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 const statusColor: Record<string, string> = {
   running: "bg-scada-green",
@@ -20,7 +17,8 @@ const statusGlow: Record<string, string> = {
   maintenance: "",
 };
 
-// Generator positions as percentage of PDF page dimensions
+// Generator positions as percentage of rendered PDF dimensions
+// Adjust these to match actual equipment locations on the floor plan
 const generatorPositions = [
   { left: "20%", top: "40%" },
   { left: "35%", top: "40%" },
@@ -37,37 +35,57 @@ export function FloorPlanView({ generators }: FloorPlanViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
-
-  const renderPdf = useCallback(async () => {
-    try {
-      const pdf = await pdfjsLib.getDocument("/floor-plan.pdf").promise;
-      const page = await pdf.getPage(1);
-      const canvas = canvasRef.current;
-      const container = containerRef.current;
-      if (!canvas || !container) return;
-
-      const containerWidth = container.clientWidth;
-      const unscaledViewport = page.getViewport({ scale: 1 });
-      const baseScale = containerWidth / unscaledViewport.width;
-      const scale = baseScale * (zoom / 100);
-      const viewport = page.getViewport({ scale });
-
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      setCanvasSize({ width: viewport.width, height: viewport.height });
-
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      await page.render({ canvasContext: ctx, viewport }).promise;
-    } catch (err) {
-      console.error("PDF render error:", err);
-    }
-  }, [zoom]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function renderPdf() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const pdfJS = await import("pdfjs-dist");
+        pdfJS.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfJS.version}/build/pdf.worker.min.mjs`;
+
+        const pdf = await pdfJS.getDocument("/floor-plan.pdf").promise;
+        const page = await pdf.getPage(1);
+
+        const canvas = canvasRef.current;
+        const container = containerRef.current;
+        if (!canvas || !container || cancelled) return;
+
+        const containerWidth = container.clientWidth;
+        const unscaledViewport = page.getViewport({ scale: 1 });
+        const baseScale = containerWidth / unscaledViewport.width;
+        const scale = baseScale * (zoom / 100);
+        const viewport = page.getViewport({ scale });
+
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        await page.render({ canvasContext: ctx, viewport }).promise;
+
+        if (!cancelled) {
+          setCanvasSize({ width: viewport.width, height: viewport.height });
+          setLoading(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error("PDF render error:", err);
+          setError("Failed to load floor plan");
+          setLoading(false);
+        }
+      }
+    }
+
     renderPdf();
-  }, [renderPdf]);
+    return () => { cancelled = true; };
+  }, [zoom]);
 
   return (
     <div className="scada-panel p-4 h-full flex flex-col">
@@ -99,13 +117,23 @@ export function FloorPlanView({ generators }: FloorPlanViewProps) {
         )}
       </div>
 
-      {/* Floor plan with canvas */}
+      {/* Floor plan */}
       <div ref={containerRef} className="flex-1 relative rounded border border-border overflow-auto scada-grid-bg">
-        <div className="relative inline-block" style={{ width: canvasSize.width, height: canvasSize.height }}>
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-sm font-mono text-muted-foreground animate-pulse">Loading floor plan...</span>
+          </div>
+        )}
+        {error && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-sm font-mono text-destructive">{error}</span>
+          </div>
+        )}
+        <div className="relative inline-block" style={{ width: canvasSize.width || "100%", height: canvasSize.height || "auto" }}>
           <canvas ref={canvasRef} className="block" />
 
           {/* Generator overlay markers */}
-          {generators.map((gen, i) => {
+          {!loading && generators.map((gen, i) => {
             const pos = generatorPositions[i] || { left: `${20 + i * 15}%`, top: "40%" };
             return (
               <div
