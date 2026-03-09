@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useScadaData } from "@/hooks/useScadaData";
 import { useEquipment, useEquipmentConnections } from "@/hooks/useEquipment";
 import { ScadaLayout } from "@/components/scada/ScadaLayout";
 import { FloorPlanView } from "@/components/scada/FloorPlanView";
@@ -16,7 +15,6 @@ const tabs = [
 type TabId = (typeof tabs)[number]["id"];
 
 const Process = () => {
-  const { generators, equipment: simEquipment } = useScadaData();
   const { data: dbEquipment = [] } = useEquipment();
   const { data: connections = [] } = useEquipmentConnections();
   const [activeTab, setActiveTab] = useState<TabId>("floorplan");
@@ -49,7 +47,7 @@ const Process = () => {
         {/* Tab content */}
         <div className="flex-1 min-h-0">
           {activeTab === "floorplan" && (
-            <FloorPlanView generators={generators} equipment={simEquipment} />
+            <FloorPlanView />
           )}
           {activeTab === "sld" && (
             <SingleLineDiagram equipment={dbEquipment} connections={connections} />
