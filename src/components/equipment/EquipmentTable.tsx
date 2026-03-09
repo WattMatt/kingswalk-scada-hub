@@ -65,8 +65,8 @@ export function EquipmentTable({ equipment, connections, isLoading, onEdit, onDe
           {equipment.map((item) => {
             const linkCount = getConnectionCount(item.id);
             return (
-              <TableRow key={item.id} className="group">
-                <TableCell className="font-mono text-xs font-bold">{item.tag_number}</TableCell>
+              <TableRow key={item.id} className="group cursor-pointer hover:bg-muted/30" onClick={() => navigate(`/equipment/${item.id}`)}>
+                <TableCell className="font-mono text-xs font-bold text-primary">{item.tag_number}</TableCell>
                 <TableCell className="font-mono text-xs">{item.name}</TableCell>
                 <TableCell className="font-mono text-xs capitalize">{item.type}</TableCell>
                 <TableCell>
