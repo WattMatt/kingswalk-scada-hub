@@ -68,7 +68,7 @@ export function EquipmentForm({ equipment, onSuccess }: EquipmentFormProps) {
       name: values.name,
       type: values.type as any,
       status: values.status as any,
-      rating: values.rating && values.rating !== "" ? Number(values.rating) : null,
+      rating: values.rating ? Number(values.rating) : null,
       rating_unit: values.rating_unit || null,
       manufacturer: values.manufacturer || null,
       model: values.model || null,

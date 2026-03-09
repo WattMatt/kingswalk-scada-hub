@@ -24,6 +24,7 @@ const App = () => (
           <Route path="/process" element={<Process />} />
           <Route path="/alarms" element={<Alarms />} />
           <Route path="/generators" element={<Generators />} />
+          <Route path="/equipment" element={<EquipmentRegistry />} />
           <Route path="/settings" element={<Settings />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

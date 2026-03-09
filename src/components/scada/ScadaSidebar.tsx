@@ -27,6 +27,7 @@ const navItems = [
   { title: "Process", url: "/process", icon: Activity },
   { title: "Alarms", url: "/alarms", icon: AlertTriangle },
   { title: "Generators", url: "/generators", icon: Zap },
+  { title: "Equipment", url: "/equipment", icon: Database },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
