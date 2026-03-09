@@ -1,19 +1,24 @@
 import { useState } from "react";
 import { useScadaData } from "@/hooks/useScadaData";
+import { useEquipment, useEquipmentConnections } from "@/hooks/useEquipment";
 import { ScadaLayout } from "@/components/scada/ScadaLayout";
 import { FloorPlanView } from "@/components/scada/FloorPlanView";
+import { SingleLineDiagram } from "@/components/scada/SingleLineDiagram";
 import { SLDViewer } from "@/components/scada/SLDViewer";
-import { Map, FileText } from "lucide-react";
+import { Map, GitBranch, FileText } from "lucide-react";
 
 const tabs = [
   { id: "floorplan", label: "Floor Plan", icon: Map },
-  { id: "sld", label: "Line Diagrams", icon: FileText },
+  { id: "sld", label: "Single Line", icon: GitBranch },
+  { id: "pdf", label: "PDF Diagrams", icon: FileText },
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
 
 const Process = () => {
-  const { generators, equipment } = useScadaData();
+  const { generators, equipment: simEquipment } = useScadaData();
+  const { data: dbEquipment = [] } = useEquipment();
+  const { data: connections = [] } = useEquipmentConnections();
   const [activeTab, setActiveTab] = useState<TabId>("floorplan");
 
   return (
@@ -44,9 +49,12 @@ const Process = () => {
         {/* Tab content */}
         <div className="flex-1 min-h-0">
           {activeTab === "floorplan" && (
-            <FloorPlanView generators={generators} equipment={equipment} />
+            <FloorPlanView generators={generators} equipment={simEquipment} />
           )}
-          {activeTab === "sld" && <SLDViewer />}
+          {activeTab === "sld" && (
+            <SingleLineDiagram equipment={dbEquipment} connections={connections} />
+          )}
+          {activeTab === "pdf" && <SLDViewer />}
         </div>
       </div>
     </ScadaLayout>

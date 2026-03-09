@@ -1,5 +1,6 @@
 import { Zap, Gauge, Activity, TrendingUp, BarChart3, Percent } from "lucide-react";
 import { useScadaData } from "@/hooks/useScadaData";
+import { useEquipment, useEquipmentConnections } from "@/hooks/useEquipment";
 import { ScadaLayout } from "@/components/scada/ScadaLayout";
 import { MetricCard } from "@/components/scada/MetricCard";
 import { GeneratorCard } from "@/components/scada/GeneratorCard";
@@ -9,6 +10,8 @@ import { SingleLineDiagram } from "@/components/scada/SingleLineDiagram";
 
 const Index = () => {
   const { metrics, generators, alarms, trendData, acknowledgeAlarm } = useScadaData();
+  const { data: dbEquipment = [] } = useEquipment();
+  const { data: connections = [] } = useEquipmentConnections();
 
   const freqStatus = Math.abs(metrics.frequency - 50) > 0.05 ? "warning" : "normal";
   const genLoadRatio = metrics.totalLoad / metrics.totalGeneration;
@@ -66,7 +69,7 @@ const Index = () => {
         {/* SLD + Alarms */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
-            <SingleLineDiagram generators={generators} />
+            <SingleLineDiagram equipment={dbEquipment} connections={connections} />
           </div>
           <div>
             <AlarmPanel alarms={alarms} onAcknowledge={acknowledgeAlarm} />

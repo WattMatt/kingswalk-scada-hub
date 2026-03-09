@@ -119,6 +119,62 @@ export type Database = {
           },
         ]
       }
+      equipment_documents: {
+        Row: {
+          category: Database["public"]["Enums"]["document_category"]
+          created_at: string
+          description: string | null
+          equipment_id: string
+          expiry_date: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          title: string
+          updated_at: string
+          uploaded_at: string
+        }
+        Insert: {
+          category?: Database["public"]["Enums"]["document_category"]
+          created_at?: string
+          description?: string | null
+          equipment_id: string
+          expiry_date?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          title: string
+          updated_at?: string
+          uploaded_at?: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["document_category"]
+          created_at?: string
+          description?: string | null
+          equipment_id?: string
+          expiry_date?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          title?: string
+          updated_at?: string
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_documents_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -127,6 +183,16 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      document_category:
+        | "coc"
+        | "lease_agreement"
+        | "contact_details"
+        | "utility_account"
+        | "compliance_register"
+        | "lighting_schedule"
+        | "maintenance_report"
+        | "specification"
+        | "other"
       equipment_status:
         | "online"
         | "offline"
@@ -272,6 +338,17 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      document_category: [
+        "coc",
+        "lease_agreement",
+        "contact_details",
+        "utility_account",
+        "compliance_register",
+        "lighting_schedule",
+        "maintenance_report",
+        "specification",
+        "other",
+      ],
       equipment_status: [
         "online",
         "offline",

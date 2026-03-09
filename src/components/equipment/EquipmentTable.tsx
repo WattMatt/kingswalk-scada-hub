@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ interface EquipmentTableProps {
 }
 
 export function EquipmentTable({ equipment, connections, isLoading, onEdit, onDelete }: EquipmentTableProps) {
+  const navigate = useNavigate();
   const getConnectionCount = (id: string) =>
     connections.filter((c) => c.from_equipment_id === id || c.to_equipment_id === id).length;
 
@@ -63,8 +65,8 @@ export function EquipmentTable({ equipment, connections, isLoading, onEdit, onDe
           {equipment.map((item) => {
             const linkCount = getConnectionCount(item.id);
             return (
-              <TableRow key={item.id} className="group">
-                <TableCell className="font-mono text-xs font-bold">{item.tag_number}</TableCell>
+              <TableRow key={item.id} className="group cursor-pointer hover:bg-muted/30" onClick={() => navigate(`/equipment/${item.id}`)}>
+                <TableCell className="font-mono text-xs font-bold text-primary">{item.tag_number}</TableCell>
                 <TableCell className="font-mono text-xs">{item.name}</TableCell>
                 <TableCell className="font-mono text-xs capitalize">{item.type}</TableCell>
                 <TableCell>
@@ -85,10 +87,10 @@ export function EquipmentTable({ equipment, connections, isLoading, onEdit, onDe
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEdit(item)}>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); onEdit(item); }}>
                       <Pencil className="w-3 h-3" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => onDelete(item.id)}>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}>
                       <Trash2 className="w-3 h-3" />
                     </Button>
                   </div>
