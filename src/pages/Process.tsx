@@ -3,12 +3,12 @@ import { ScadaLayout } from "@/components/scada/ScadaLayout";
 import { FloorPlanView } from "@/components/scada/FloorPlanView";
 
 const Process = () => {
-  const { generators } = useScadaData();
+  const { generators, equipment } = useScadaData();
 
   return (
     <ScadaLayout>
       <div className="h-[calc(100vh-6rem)]">
-        <FloorPlanView generators={generators} />
+        <FloorPlanView generators={generators} equipment={equipment} />
       </div>
     </ScadaLayout>
   );
