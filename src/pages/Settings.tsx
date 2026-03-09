@@ -31,23 +31,27 @@ const Settings = () => {
   const [newLabel, setNewLabel] = useState("");
   const [newType, setNewType] = useState<MarkerConfig["type"]>("generator");
   const [newLinkedGen, setNewLinkedGen] = useState<string>("");
+  const [newLinkedEquip, setNewLinkedEquip] = useState<string>("");
 
   const handleAdd = () => {
     if (!newLabel.trim()) {
       toast.error("Label is required");
       return;
     }
+    const isGen = newType === "generator";
     const marker: MarkerConfig = {
       id: `marker-${Date.now()}`,
       label: newLabel.trim(),
       type: newType,
       left: 50,
       top: 50,
-      linkedGenerator: newType === "generator" && newLinkedGen ? newLinkedGen : undefined,
+      linkedGenerator: isGen && newLinkedGen && newLinkedGen !== "none" ? newLinkedGen : undefined,
+      linkedEquipment: !isGen && newLinkedEquip && newLinkedEquip !== "none" ? newLinkedEquip : undefined,
     };
     addMarker(marker);
     setNewLabel("");
     setNewLinkedGen("");
+    setNewLinkedEquip("");
     toast.success(`Marker "${marker.label}" added — go to Process tab to drag it into position`);
   };
 
