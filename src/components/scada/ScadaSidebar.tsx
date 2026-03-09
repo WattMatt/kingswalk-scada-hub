@@ -3,6 +3,7 @@ import {
   Activity,
   AlertTriangle,
   Zap,
+  Database,
   Settings,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
