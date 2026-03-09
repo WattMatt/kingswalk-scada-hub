@@ -16,8 +16,12 @@ const MARKER_TYPES = [
   { value: "generator", label: "Generator" },
   { value: "transformer", label: "Transformer" },
   { value: "switchgear", label: "Switchgear" },
+  { value: "breaker", label: "Breaker" },
+  { value: "bus", label: "Bus" },
   { value: "custom", label: "Custom" },
 ] as const;
+
+const EQUIPMENT_IDS = ["XFMR-1", "XFMR-2", "SWG-1", "CB-01", "CB-02", "BUS-1"];
 
 const Settings = () => {
   const { markers, addMarker, removeMarker, updateMarkerPosition, resetMarkers } = useMarkerStore();
