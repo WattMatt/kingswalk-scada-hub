@@ -7,6 +7,7 @@ import Index from "./pages/Index.tsx";
 import Process from "./pages/Process.tsx";
 import Alarms from "./pages/Alarms.tsx";
 import Generators from "./pages/Generators.tsx";
+import EquipmentRegistry from "./pages/EquipmentRegistry.tsx";
 import Settings from "./pages/Settings.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
