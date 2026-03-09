@@ -114,20 +114,34 @@ const Settings = () => {
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-mono">Link Generator</Label>
-                    <Select value={newLinkedGen} onValueChange={setNewLinkedGen}>
-                      <SelectTrigger className="h-8 text-xs font-mono bg-background">
-                        <SelectValue placeholder="None" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none" className="text-xs font-mono">None</SelectItem>
-                        {GENERATOR_IDS.map((id) => (
-                          <SelectItem key={id} value={id} className="text-xs font-mono">
-                            {id}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label className="text-xs font-mono">
+                      {newType === "generator" ? "Link Generator" : "Link Equipment"}
+                    </Label>
+                    {newType === "generator" ? (
+                      <Select value={newLinkedGen} onValueChange={setNewLinkedGen}>
+                        <SelectTrigger className="h-8 text-xs font-mono bg-background">
+                          <SelectValue placeholder="None" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none" className="text-xs font-mono">None</SelectItem>
+                          {GENERATOR_IDS.map((id) => (
+                            <SelectItem key={id} value={id} className="text-xs font-mono">{id}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Select value={newLinkedEquip} onValueChange={setNewLinkedEquip}>
+                        <SelectTrigger className="h-8 text-xs font-mono bg-background">
+                          <SelectValue placeholder="None" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none" className="text-xs font-mono">None</SelectItem>
+                          {EQUIPMENT_IDS.map((id) => (
+                            <SelectItem key={id} value={id} className="text-xs font-mono">{id}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                   <Button onClick={handleAdd} size="sm" className="h-8 gap-1.5">
                     <Plus className="w-3.5 h-3.5" />
