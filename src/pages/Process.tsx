@@ -15,7 +15,6 @@ const tabs = [
 type TabId = (typeof tabs)[number]["id"];
 
 const Process = () => {
-  const { generators, equipment: simEquipment } = useScadaData();
   const { data: dbEquipment = [] } = useEquipment();
   const { data: connections = [] } = useEquipmentConnections();
   const [activeTab, setActiveTab] = useState<TabId>("floorplan");
