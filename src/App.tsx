@@ -7,6 +7,7 @@ import Index from "./pages/Index.tsx";
 import Process from "./pages/Process.tsx";
 import Alarms from "./pages/Alarms.tsx";
 import Generators from "./pages/Generators.tsx";
+import EquipmentRegistry from "./pages/EquipmentRegistry.tsx";
 import Settings from "./pages/Settings.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/process" element={<Process />} />
           <Route path="/alarms" element={<Alarms />} />
           <Route path="/generators" element={<Generators />} />
+          <Route path="/equipment" element={<EquipmentRegistry />} />
           <Route path="/settings" element={<Settings />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
