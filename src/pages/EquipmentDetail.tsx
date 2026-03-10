@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ScadaLayout } from "@/components/scada/ScadaLayout";
 import { useEquipment, useEquipmentConnections } from "@/hooks/useEquipment";
 import { DocumentRepository } from "@/components/equipment/DocumentRepository";
+import { SensorHistoryChart } from "@/components/equipment/SensorHistoryChart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
