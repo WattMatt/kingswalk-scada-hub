@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useEquipment, useUpdateEquipment, useEquipmentConnections, useCreateConnection } from "@/hooks/useEquipment";
 import { useConfigMode } from "@/hooks/useConfigMode";
 import { useSimulatedSensors } from "@/hooks/useSimulatedSensors";
+import { useAlarmThresholds, buildThresholdMap, checkAlarmBreach } from "@/hooks/useAlarmThresholds";
 import { getSymbolComponent, statusColors, statusGlowFilters, getStatusGlowFilter } from "./sld/SLDSymbols";
 import { autoLayout } from "./sld/SLDAutoLayout";
 import { SLD_GROUPS, getHiddenIds, getAnchorId, getGroupCounts, getEquipmentGroup } from "./sld/SLDGroups";
