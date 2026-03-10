@@ -145,7 +145,7 @@ export function FloorPlanView() {
         startTop: marker.top,
       };
     },
-    [editMode]
+    [configMode]
   );
 
   const handlePointerMove = useCallback(
