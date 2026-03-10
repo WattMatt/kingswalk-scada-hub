@@ -15,7 +15,7 @@ import type { Equipment } from "@/hooks/useEquipment";
 type Mode = "select" | "move" | "connect";
 
 const CANVAS_W = 1600;
-const CANVAS_H = 1050;
+const CANVAS_H = 1200;
 
 export function SingleLineDiagram() {
   const navigate = useNavigate();
