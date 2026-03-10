@@ -650,8 +650,18 @@ export function SingleLineDiagram() {
                     </rect>
                   )}
 
+                  {/* Alarm flash border for busbar */}
+                  {isAlarming && (
+                    <rect
+                      x={barLeft - 6} y={-barH / 2 - 6} width={barW + 12} height={barH + 12} rx={5}
+                      fill="none" stroke="#ef4444" strokeWidth="3" filter="url(#alarm-flash)"
+                    >
+                      <animate attributeName="opacity" values="1;0.3;1" dur="0.8s" repeatCount="indefinite" />
+                    </rect>
+                  )}
+
                   {/* Glow */}
-                  {glowFilter && (
+                  {glowFilter && !isAlarming && (
                     <rect x={barLeft - 6} y={-barH / 2 - 6} width={barW + 12} height={barH + 12} rx={4}
                       fill={color} opacity="0.12" filter={glowFilter} />
                   )}
