@@ -160,6 +160,49 @@ export function SingleLineDiagram() {
     return map;
   }, [equipment, connections]);
 
+  // Compute busbar extents — each busbar spans from leftmost to rightmost connected equipment
+  const busbarExtents = useMemo(() => {
+    const extents = new Map<string, { left: number; right: number }>();
+    const busEquip = equipment.filter((e) => e.type === "bus" && BUSBAR_TAGS.has(e.tag_number));
+
+    for (const bus of busEquip) {
+      const busPos = positions.get(bus.id);
+      if (!busPos) continue;
+
+      // Find all visible equipment connected to this bus
+      const connectedIds = new Set<string>();
+      for (const c of visibleConnections) {
+        if (c.from_equipment_id === bus.id) connectedIds.add(c.to_equipment_id);
+        if (c.to_equipment_id === bus.id) connectedIds.add(c.from_equipment_id);
+      }
+
+      let minX = busPos.x;
+      let maxX = busPos.x;
+      const BAR_PADDING = 60;
+
+      connectedIds.forEach((id) => {
+        const p = positions.get(id);
+        if (p) {
+          minX = Math.min(minX, p.x);
+          maxX = Math.max(maxX, p.x);
+        }
+      });
+
+      // Add padding, ensure minimum width
+      const left = minX - BAR_PADDING;
+      const right = maxX + BAR_PADDING;
+      const minWidth = 200;
+      if (right - left < minWidth) {
+        const center = (left + right) / 2;
+        extents.set(bus.id, { left: center - minWidth / 2, right: center + minWidth / 2 });
+      } else {
+        extents.set(bus.id, { left, right });
+      }
+    }
+
+    return extents;
+  }, [equipment, positions, visibleConnections]);
+
   // SVG coordinate helpers
   const svgPoint = useCallback((clientX: number, clientY: number) => {
     const svg = svgRef.current;
