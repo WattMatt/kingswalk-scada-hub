@@ -4,7 +4,6 @@ import { useEquipment, useUpdateEquipment, useEquipmentConnections, useCreateCon
 import { getSymbolComponent, statusColors, statusGlowFilters, getStatusGlowFilter } from "./sld/SLDSymbols";
 import { autoLayout } from "./sld/SLDAutoLayout";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   ZoomIn, ZoomOut, Maximize2, Lock, Unlock, LayoutGrid, Cable, MousePointer,
 } from "lucide-react";
