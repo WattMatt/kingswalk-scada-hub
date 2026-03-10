@@ -505,7 +505,7 @@ export function SingleLineDiagram() {
           })()}
 
           {/* Equipment nodes */}
-          {equipment.map((item) => {
+          {visibleEquipment.map((item) => {
             const pos = positions.get(item.id);
             if (!pos) return null;
 
