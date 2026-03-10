@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useEquipment, useUpdateEquipment, useEquipmentConnections, useCreateConnection } from "@/hooks/useEquipment";
 import { useConfigMode } from "@/hooks/useConfigMode";
+import { useSimulatedSensors } from "@/hooks/useSimulatedSensors";
 import { getSymbolComponent, statusColors, statusGlowFilters, getStatusGlowFilter } from "./sld/SLDSymbols";
 import { autoLayout } from "./sld/SLDAutoLayout";
 import { Button } from "@/components/ui/button";
