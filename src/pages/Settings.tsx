@@ -1,18 +1,22 @@
 import { ScadaLayout } from "@/components/scada/ScadaLayout";
 import { useConfigMode } from "@/hooks/useConfigMode";
 import { useMarkerStore } from "@/hooks/useMarkerStore";
+import { useAlarmThresholds, useUpdateThreshold } from "@/hooks/useAlarmThresholds";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { GripVertical, ShieldAlert, ShieldCheck, Wrench } from "lucide-react";
+import { GripVertical, ShieldAlert, ShieldCheck, Wrench, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { Constants } from "@/integrations/supabase/types";
 
 const Settings = () => {
   const { configMode, setConfigMode } = useConfigMode();
   const { markers, updateMarkerPosition } = useMarkerStore();
+  const { data: thresholds = [], isLoading: thresholdsLoading } = useAlarmThresholds();
+  const updateThreshold = useUpdateThreshold();
 
   const handlePositionChange = (id: string, field: "left" | "top", value: string) => {
     if (!configMode) return;
@@ -24,6 +28,28 @@ const Settings = () => {
     updateMarkerPosition(id, field === "left" ? clamped : marker.left, field === "top" ? clamped : marker.top);
     toast.success("Position updated");
   };
+
+  const handleThresholdChange = (id: string, field: "min_value" | "max_value", value: string) => {
+    const threshold = thresholds.find((t) => t.id === id);
+    if (!threshold) return;
+    const num = value === "" ? null : parseFloat(value);
+    if (value !== "" && isNaN(num as number)) return;
+    updateThreshold.mutate(
+      {
+        id,
+        min_value: field === "min_value" ? num : threshold.min_value,
+        max_value: field === "max_value" ? num : threshold.max_value,
+      },
+      { onSuccess: () => toast.success("Threshold updated") }
+    );
+  };
+
+  // Group thresholds by equipment type
+  const groupedThresholds = thresholds.reduce<Record<string, typeof thresholds>>((acc, t) => {
+    if (!acc[t.equipment_type]) acc[t.equipment_type] = [];
+    acc[t.equipment_type].push(t);
+    return acc;
+  }, {});
 
   return (
     <ScadaLayout>
@@ -72,7 +98,7 @@ const Settings = () => {
               <div className="flex items-center gap-2 px-3 py-2 rounded bg-scada-amber/10 border border-scada-amber/30">
                 <ShieldAlert className="w-4 h-4 text-scada-amber shrink-0" />
                 <p className="text-[11px] font-mono text-scada-amber">
-                  While configuration mode is active, you can drag markers on the Floor Plan, reposition and connect nodes on the Single Line Diagram. 
+                  While configuration mode is active, you can drag markers on the Floor Plan, reposition and connect nodes on the Single Line Diagram.
                   Disable when done to lock all views.
                 </p>
               </div>
@@ -83,6 +109,7 @@ const Settings = () => {
         <Tabs defaultValue="markers" className="w-full">
           <TabsList className="bg-card border border-border">
             <TabsTrigger value="markers" className="font-mono text-xs">Floor Plan Markers</TabsTrigger>
+            <TabsTrigger value="thresholds" className="font-mono text-xs">Alarm Thresholds</TabsTrigger>
             <TabsTrigger value="general" className="font-mono text-xs">General</TabsTrigger>
           </TabsList>
 
@@ -138,6 +165,72 @@ const Settings = () => {
                     </div>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="thresholds" className="space-y-4 mt-4">
+            <Card className="bg-card border-border">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-destructive/20 flex items-center justify-center">
+                    <AlertTriangle className="w-4 h-4 text-destructive" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm font-mono uppercase tracking-wider">Alarm Thresholds</CardTitle>
+                    <CardDescription className="text-xs font-mono">
+                      Set min/max limits for voltage and current per equipment type. SLD nodes flash red when breached.
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {thresholdsLoading ? (
+                  <p className="text-xs font-mono text-muted-foreground text-center py-4">Loading thresholds…</p>
+                ) : (
+                  <div className="space-y-4">
+                    {Object.entries(groupedThresholds).map(([eqType, items]) => (
+                      <div key={eqType} className="space-y-2">
+                        <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-foreground capitalize">
+                          {eqType}
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {items.map((t) => (
+                            <div
+                              key={t.id}
+                              className="flex items-center gap-3 p-2 rounded border border-border bg-background"
+                            >
+                              <span className="text-xs font-mono font-semibold text-muted-foreground capitalize w-16">
+                                {t.metric}
+                              </span>
+                              <div className="flex items-center gap-1.5 flex-1">
+                                <Label className="text-[10px] font-mono text-muted-foreground">Min</Label>
+                                <Input
+                                  type="number"
+                                  value={t.min_value ?? ""}
+                                  onChange={(e) => handleThresholdChange(t.id, "min_value", e.target.value)}
+                                  className="h-6 w-20 text-[10px] font-mono bg-card"
+                                  placeholder="—"
+                                />
+                                <Label className="text-[10px] font-mono text-muted-foreground">Max</Label>
+                                <Input
+                                  type="number"
+                                  value={t.max_value ?? ""}
+                                  onChange={(e) => handleThresholdChange(t.id, "max_value", e.target.value)}
+                                  className="h-6 w-20 text-[10px] font-mono bg-card"
+                                  placeholder="—"
+                                />
+                                <span className="text-[9px] font-mono text-muted-foreground/60">
+                                  {t.metric === "voltage" ? "V" : "A"}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

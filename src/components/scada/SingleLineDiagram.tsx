@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useEquipment, useUpdateEquipment, useEquipmentConnections, useCreateConnection } from "@/hooks/useEquipment";
 import { useConfigMode } from "@/hooks/useConfigMode";
 import { useSimulatedSensors } from "@/hooks/useSimulatedSensors";
+import { useAlarmThresholds, buildThresholdMap, checkAlarmBreach } from "@/hooks/useAlarmThresholds";
 import { getSymbolComponent, statusColors, statusGlowFilters, getStatusGlowFilter } from "./sld/SLDSymbols";
 import { autoLayout } from "./sld/SLDAutoLayout";
 import { SLD_GROUPS, getHiddenIds, getAnchorId, getGroupCounts, getEquipmentGroup } from "./sld/SLDGroups";
@@ -33,6 +34,10 @@ export function SingleLineDiagram() {
     [equipment]
   );
   const { readings: sensorReadings, kwHistory } = useSimulatedSensors(sensorInput);
+
+  // Alarm thresholds
+  const { data: thresholds = [] } = useAlarmThresholds();
+  const thresholdMap = useMemo(() => buildThresholdMap(thresholds), [thresholds]);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -508,6 +513,12 @@ export function SingleLineDiagram() {
             <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
               <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(215, 15%, 45%)" />
             </marker>
+            <filter id="alarm-flash" x="-80%" y="-80%" width="260%" height="260%">
+              <feGaussianBlur stdDeviation="6" result="blur" />
+              <feFlood flood-color="#ef4444" flood-opacity="0.7" result="color" />
+              <feComposite in="color" in2="blur" operator="in" result="glow" />
+              <feMerge><feMergeNode in="glow" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
           `}} />
 
           {/* Connection lines */}
@@ -607,6 +618,13 @@ export function SingleLineDiagram() {
             const glowFilter = getStatusGlowFilter(item.status);
             const barExtent = busbarExtents.get(item.id);
 
+            // Alarm threshold breach check
+            const reading = sensorReadings.get(item.id);
+            const alarmBreach = reading
+              ? checkAlarmBreach(item.type, reading, thresholdMap)
+              : { breached: false, metrics: [] as string[] };
+            const isAlarming = alarmBreach.breached && item.status !== "offline" && item.status !== "maintenance";
+
             // === Spanning busbar rendering ===
             if (barExtent && item.type === "bus") {
               const barW = barExtent.right - barExtent.left;
@@ -632,8 +650,18 @@ export function SingleLineDiagram() {
                     </rect>
                   )}
 
+                  {/* Alarm flash border for busbar */}
+                  {isAlarming && (
+                    <rect
+                      x={barLeft - 6} y={-barH / 2 - 6} width={barW + 12} height={barH + 12} rx={5}
+                      fill="none" stroke="#ef4444" strokeWidth="3" filter="url(#alarm-flash)"
+                    >
+                      <animate attributeName="opacity" values="1;0.3;1" dur="0.8s" repeatCount="indefinite" />
+                    </rect>
+                  )}
+
                   {/* Glow */}
-                  {glowFilter && (
+                  {glowFilter && !isAlarming && (
                     <rect x={barLeft - 6} y={-barH / 2 - 6} width={barW + 12} height={barH + 12} rx={4}
                       fill={color} opacity="0.12" filter={glowFilter} />
                   )}
@@ -709,17 +737,26 @@ export function SingleLineDiagram() {
                   </circle>
                 )}
 
+                {/* Alarm flash ring */}
+                {isAlarming && (
+                  <g filter="url(#alarm-flash)">
+                    <circle cx={0} cy={0} r={34} fill="none" stroke="#ef4444" strokeWidth="3">
+                      <animate attributeName="opacity" values="1;0.3;1" dur="0.8s" repeatCount="indefinite" />
+                    </circle>
+                  </g>
+                )}
+
                 {/* Glow effect for active equipment */}
-                {glowFilter && (
+                {glowFilter && !isAlarming && (
                   <circle cx={0} cy={0} r={28} fill={color} opacity="0.15" filter={glowFilter} />
                 )}
 
                 {/* Equipment symbol */}
-                <Symbol color={color} size={48} />
+                <Symbol color={isAlarming ? "#ef4444" : color} size={48} />
 
                 {/* Status dot */}
-                <circle cx={26} cy={-20} r={5} fill={color} stroke="hsl(220, 18%, 10%)" strokeWidth="2">
-                  {item.status === "online" && (
+                <circle cx={26} cy={-20} r={5} fill={isAlarming ? "#ef4444" : color} stroke="hsl(220, 18%, 10%)" strokeWidth="2">
+                  {(item.status === "online" || isAlarming) && (
                     <animate attributeName="r" values="5;6;5" dur="2s" repeatCount="indefinite" />
                   )}
                 </circle>
@@ -760,18 +797,18 @@ export function SingleLineDiagram() {
                       {/* Background panel — taller to fit sparkline */}
                       <rect x={-42} y={50} width={84} height={64} rx={4}
                         fill="hsl(220, 18%, 10%)" fillOpacity="0.85"
-                        stroke="hsl(215, 15%, 25%)" strokeWidth="0.5" />
+                        stroke={isAlarming ? "#ef4444" : "hsl(215, 15%, 25%)"} strokeWidth={isAlarming ? "1.5" : "0.5"} />
                       {/* kW */}
                       <text x={-36} y={63} fill={isZero ? "hsl(215, 15%, 40%)" : "#22c55e"} fontSize="9" fontFamily="IBM Plex Mono" fontWeight="bold">
                         {reading.kw.toFixed(1)}
                       </text>
                       <text x={8} y={63} fill="hsl(215, 15%, 50%)" fontSize="7" fontFamily="IBM Plex Mono">kW</text>
                       {/* Voltage */}
-                      <text x={-36} y={74} fill={isZero ? "hsl(215, 15%, 40%)" : "hsl(43, 96%, 56%)"} fontSize="8" fontFamily="IBM Plex Mono">
+                      <text x={-36} y={74} fill={isZero ? "hsl(215, 15%, 40%)" : alarmBreach.metrics.includes("voltage") ? "#ef4444" : "hsl(43, 96%, 56%)"} fontSize="8" fontFamily="IBM Plex Mono" fontWeight={alarmBreach.metrics.includes("voltage") ? "bold" : "normal"}>
                         {reading.voltage.toFixed(0)}V
                       </text>
                       {/* Current */}
-                      <text x={4} y={74} fill={isZero ? "hsl(215, 15%, 40%)" : "hsl(199, 89%, 48%)"} fontSize="8" fontFamily="IBM Plex Mono">
+                      <text x={4} y={74} fill={isZero ? "hsl(215, 15%, 40%)" : alarmBreach.metrics.includes("current") ? "#ef4444" : "hsl(199, 89%, 48%)"} fontSize="8" fontFamily="IBM Plex Mono" fontWeight={alarmBreach.metrics.includes("current") ? "bold" : "normal"}>
                         {reading.current.toFixed(1)}A
                       </text>
                       {/* PF + Hz */}

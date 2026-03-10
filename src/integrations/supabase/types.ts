@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      alarm_thresholds: {
+        Row: {
+          created_at: string
+          equipment_type: string
+          id: string
+          max_value: number | null
+          metric: string
+          min_value: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          equipment_type: string
+          id?: string
+          max_value?: number | null
+          metric: string
+          min_value?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          equipment_type?: string
+          id?: string
+          max_value?: number | null
+          metric?: string
+          min_value?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       equipment: {
         Row: {
           created_at: string
