@@ -59,6 +59,83 @@ export function SingleLineDiagram() {
   // Selected node
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  // Collapsible groups
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  const toggleGroup = useCallback((groupId: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  }, []);
+
+  const collapseAll = useCallback(() => {
+    setCollapsedGroups(new Set(SLD_GROUPS.map((g) => g.id)));
+  }, []);
+
+  const expandAll = useCallback(() => {
+    setCollapsedGroups(new Set());
+  }, []);
+
+  const hiddenIds = useMemo(
+    () => getHiddenIds(equipment, collapsedGroups),
+    [equipment, collapsedGroups]
+  );
+
+  const groupCounts = useMemo(
+    () => getGroupCounts(equipment),
+    [equipment]
+  );
+
+  // Anchor ID lookup for collapsed groups
+  const anchorIdMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const g of SLD_GROUPS) {
+      const id = getAnchorId(equipment, g);
+      if (id) map.set(g.id, id);
+    }
+    return map;
+  }, [equipment]);
+
+  // Visible equipment (filtered by collapse state)
+  const visibleEquipment = useMemo(
+    () => equipment.filter((e) => !hiddenIds.has(e.id)),
+    [equipment, hiddenIds]
+  );
+
+  // Visible connections — hide if both endpoints hidden, redirect if one hidden
+  const visibleConnections = useMemo(() => {
+    if (hiddenIds.size === 0) return connections;
+    return connections.filter((c) => {
+      // Hide connection if BOTH endpoints are hidden
+      if (hiddenIds.has(c.from_equipment_id) && hiddenIds.has(c.to_equipment_id)) return false;
+      return true;
+    }).map((c) => {
+      // If one endpoint is hidden, redirect to the group's anchor
+      let from = c.from_equipment_id;
+      let to = c.to_equipment_id;
+
+      if (hiddenIds.has(from)) {
+        const item = equipment.find((e) => e.id === from);
+        if (item) {
+          const gId = getEquipmentGroup(item, SLD_GROUPS);
+          if (gId) from = anchorIdMap.get(gId) || from;
+        }
+      }
+      if (hiddenIds.has(to)) {
+        const item = equipment.find((e) => e.id === to);
+        if (item) {
+          const gId = getEquipmentGroup(item, SLD_GROUPS);
+          if (gId) to = anchorIdMap.get(gId) || to;
+        }
+      }
+
+      return { ...c, from_equipment_id: from, to_equipment_id: to };
+    });
+  }, [connections, hiddenIds, equipment, anchorIdMap]);
+
   // Build position map: use sld_x/sld_y from DB, fallback to auto-layout
   const positions = useMemo(() => {
     const map = new Map<string, { x: number; y: number }>();
