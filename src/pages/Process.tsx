@@ -50,7 +50,7 @@ const Process = () => {
             <FloorPlanView />
           )}
           {activeTab === "sld" && (
-            <SingleLineDiagram equipment={dbEquipment} connections={connections} />
+            <SingleLineDiagram />
           )}
           {activeTab === "pdf" && <SLDViewer />}
         </div>

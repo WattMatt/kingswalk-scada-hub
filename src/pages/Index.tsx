@@ -69,7 +69,7 @@ const Index = () => {
         {/* SLD + Alarms */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
-            <SingleLineDiagram equipment={dbEquipment} connections={connections} />
+            <SingleLineDiagram />
           </div>
           <div>
             <AlarmPanel alarms={alarms} onAcknowledge={acknowledgeAlarm} />
