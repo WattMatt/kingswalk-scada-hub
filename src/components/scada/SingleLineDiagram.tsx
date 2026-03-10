@@ -89,6 +89,9 @@ export function SingleLineDiagram() {
     [equipment]
   );
 
+  // Tags that should render as spanning horizontal busbars
+  const BUSBAR_TAGS = new Set(["BUS-LV", "BUS-SB"]);
+
   // Anchor ID lookup for collapsed groups
   const anchorIdMap = useMemo(() => {
     const map = new Map<string, string>();
