@@ -605,7 +605,94 @@ export function SingleLineDiagram() {
             const isSelected = selectedId === item.id;
             const isConnectSource = connectFrom === item.id;
             const glowFilter = getStatusGlowFilter(item.status);
+            const barExtent = busbarExtents.get(item.id);
 
+            // === Spanning busbar rendering ===
+            if (barExtent && item.type === "bus") {
+              const barW = barExtent.right - barExtent.left;
+              const barH = 14;
+              const barLeft = barExtent.left - pos.x;
+
+              return (
+                <g
+                  key={item.id}
+                  data-sld-node
+                  transform={`translate(${pos.x}, ${pos.y})`}
+                  className={mode === "move" ? "cursor-grab" : mode === "connect" ? "cursor-crosshair" : "cursor-pointer"}
+                  onMouseDown={(e) => handleNodeMouseDown(e, item)}
+                  onDoubleClick={() => handleNodeDoubleClick(item)}
+                >
+                  {/* Selection highlight */}
+                  {(isSelected || isConnectSource) && (
+                    <rect
+                      x={barLeft - 4} y={-barH / 2 - 4} width={barW + 8} height={barH + 8} rx={4}
+                      fill="none" stroke={isConnectSource ? "#22c55e" : "hsl(var(--primary))"} strokeWidth="2" strokeDasharray="4 3"
+                    >
+                      <animate attributeName="stroke-dashoffset" from="0" to="14" dur="2s" repeatCount="indefinite" />
+                    </rect>
+                  )}
+
+                  {/* Glow */}
+                  {glowFilter && (
+                    <rect x={barLeft - 6} y={-barH / 2 - 6} width={barW + 12} height={barH + 12} rx={4}
+                      fill={color} opacity="0.12" filter={glowFilter} />
+                  )}
+
+                  {/* Busbar body — thick copper-style bar */}
+                  <rect
+                    x={barLeft} y={-barH / 2} width={barW} height={barH} rx={3}
+                    fill={color} fillOpacity="0.85"
+                  />
+                  <rect
+                    x={barLeft} y={-barH / 2} width={barW} height={barH} rx={3}
+                    fill="none" stroke={color} strokeWidth="1.5"
+                  />
+                  {/* Inner highlight stripe */}
+                  <rect
+                    x={barLeft + 2} y={-barH / 2 + 2} width={barW - 4} height={3} rx={1}
+                    fill="white" fillOpacity="0.15"
+                  />
+
+                  {/* Connection tick marks on the bar */}
+                  {(() => {
+                    const connectedXs: number[] = [];
+                    for (const c of visibleConnections) {
+                      const otherId = c.from_equipment_id === item.id ? c.to_equipment_id : c.to_equipment_id === item.id ? c.from_equipment_id : null;
+                      if (otherId) {
+                        const otherPos = positions.get(otherId);
+                        if (otherPos) connectedXs.push(Math.max(barExtent.left, Math.min(barExtent.right, otherPos.x)) - pos.x);
+                      }
+                    }
+                    return connectedXs.map((tx, i) => (
+                      <line key={i} x1={tx} y1={-barH / 2 - 3} x2={tx} y2={barH / 2 + 3}
+                        stroke={color} strokeWidth="2" opacity="0.6" />
+                    ));
+                  })()}
+
+                  {/* Tag label — centered on bar */}
+                  <text x={0} y={barH / 2 + 16} textAnchor="middle" fill="hsl(210, 20%, 85%)" fontSize="11" fontFamily="IBM Plex Mono" fontWeight="bold">
+                    {item.tag_number}
+                  </text>
+
+                  {/* Status text */}
+                  <text x={0} y={barH / 2 + 28} textAnchor="middle" fill={color} fontSize="8" fontFamily="IBM Plex Mono" fontWeight="bold">
+                    {item.status.toUpperCase()}
+                  </text>
+
+                  {/* Status dot */}
+                  <circle cx={barExtent.right - pos.x + 12} cy={0} r={5} fill={color} stroke="hsl(220, 18%, 10%)" strokeWidth="2">
+                    {item.status === "online" && (
+                      <animate attributeName="r" values="5;6;5" dur="2s" repeatCount="indefinite" />
+                    )}
+                  </circle>
+
+                  {/* Invisible hit area */}
+                  <rect x={barLeft - 10} y={-25} width={barW + 20} height={70} fill="transparent" />
+                </g>
+              );
+            }
+
+            // === Standard point-node rendering ===
             return (
               <g
                 key={item.id}
