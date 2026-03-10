@@ -472,15 +472,36 @@ export function SingleLineDiagram() {
                   {item.tag_number}
                 </text>
 
-                {/* Live sensor data panel */}
+                {/* Live sensor data panel + sparkline */}
                 {(() => {
                   const reading = sensorReadings.get(item.id);
                   if (!reading) return null;
                   const isZero = reading.kw === 0 && reading.voltage === 0;
+                  const history = kwHistory.get(item.id) || [];
+
+                  // Build sparkline path
+                  const sparkW = 78;
+                  const sparkH = 18;
+                  const sparkX = -39;
+                  const sparkY = 90;
+                  let sparkPath = "";
+                  if (history.length > 1) {
+                    const min = Math.min(...history);
+                    const max = Math.max(...history);
+                    const range = max - min || 1;
+                    sparkPath = history
+                      .map((v, i) => {
+                        const x = sparkX + (i / (history.length - 1)) * sparkW;
+                        const y = sparkY + sparkH - ((v - min) / range) * sparkH;
+                        return `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
+                      })
+                      .join(" ");
+                  }
+
                   return (
                     <g>
-                      {/* Background panel */}
-                      <rect x={-42} y={50} width={84} height={42} rx={4}
+                      {/* Background panel — taller to fit sparkline */}
+                      <rect x={-42} y={50} width={84} height={64} rx={4}
                         fill="hsl(220, 18%, 10%)" fillOpacity="0.85"
                         stroke="hsl(215, 15%, 25%)" strokeWidth="0.5" />
                       {/* kW */}
@@ -496,25 +517,59 @@ export function SingleLineDiagram() {
                       <text x={4} y={74} fill={isZero ? "hsl(215, 15%, 40%)" : "hsl(199, 89%, 48%)"} fontSize="8" fontFamily="IBM Plex Mono">
                         {reading.current.toFixed(1)}A
                       </text>
-                      {/* PF */}
-                      <text x={-36} y={86} fill="hsl(215, 15%, 50%)" fontSize="7" fontFamily="IBM Plex Mono">
+                      {/* PF + Hz */}
+                      <text x={-36} y={85} fill="hsl(215, 15%, 50%)" fontSize="7" fontFamily="IBM Plex Mono">
                         PF {reading.powerFactor.toFixed(2)}
                       </text>
-                      {/* Hz */}
-                      <text x={10} y={86} fill="hsl(215, 15%, 50%)" fontSize="7" fontFamily="IBM Plex Mono">
+                      <text x={10} y={85} fill="hsl(215, 15%, 50%)" fontSize="7" fontFamily="IBM Plex Mono">
                         {reading.frequency.toFixed(1)}Hz
                       </text>
+
+                      {/* Sparkline */}
+                      {sparkPath && (
+                        <g>
+                          {/* Filled area under the line */}
+                          <path
+                            d={`${sparkPath} L ${(sparkX + sparkW).toFixed(1)} ${(sparkY + sparkH).toFixed(1)} L ${sparkX.toFixed(1)} ${(sparkY + sparkH).toFixed(1)} Z`}
+                            fill="#22c55e"
+                            fillOpacity="0.1"
+                          />
+                          {/* The sparkline */}
+                          <path
+                            d={sparkPath}
+                            fill="none"
+                            stroke="#22c55e"
+                            strokeWidth="1.2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          {/* Current value dot */}
+                          {history.length > 1 && (() => {
+                            const min = Math.min(...history);
+                            const max = Math.max(...history);
+                            const range = max - min || 1;
+                            const lastVal = history[history.length - 1];
+                            const cx = sparkX + sparkW;
+                            const cy = sparkY + sparkH - ((lastVal - min) / range) * sparkH;
+                            return (
+                              <circle cx={cx} cy={cy} r="2" fill="#22c55e">
+                                <animate attributeName="r" values="2;3;2" dur="1.5s" repeatCount="indefinite" />
+                              </circle>
+                            );
+                          })()}
+                        </g>
+                      )}
                     </g>
                   );
                 })()}
 
                 {/* Status text */}
-                <text x={0} y={102} textAnchor="middle" fill={color} fontSize="8" fontFamily="IBM Plex Mono" fontWeight="bold">
+                <text x={0} y={124} textAnchor="middle" fill={color} fontSize="8" fontFamily="IBM Plex Mono" fontWeight="bold">
                   {item.status.toUpperCase()}
                 </text>
 
                 {/* Invisible hit area for easier clicking */}
-                <rect x={-45} y={-35} width={90} height={145} fill="transparent" />
+                <rect x={-45} y={-35} width={90} height={168} fill="transparent" />
               </g>
             );
           })}
