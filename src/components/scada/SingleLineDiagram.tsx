@@ -371,6 +371,39 @@ export function SingleLineDiagram() {
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Group collapse controls */}
+          <div className="flex items-center gap-0.5 mr-1">
+            <Layers className="w-3.5 h-3.5 text-muted-foreground" />
+            {SLD_GROUPS.map((g) => {
+              const isCollapsed = collapsedGroups.has(g.id);
+              const count = groupCounts.get(g.id) || 0;
+              if (count === 0) return null;
+              return (
+                <Button
+                  key={g.id}
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-1.5 text-[10px] font-mono gap-1"
+                  style={{ color: g.color, opacity: isCollapsed ? 0.5 : 1 }}
+                  onClick={() => toggleGroup(g.id)}
+                  title={`${isCollapsed ? "Expand" : "Collapse"} ${g.label} (${count} nodes)`}
+                >
+                  {isCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  {g.label.replace("Section ", "S").replace("Bank ", "B")}
+                </Button>
+              );
+            })}
+            {collapsedGroups.size > 0 ? (
+              <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] font-mono text-muted-foreground" onClick={expandAll}>
+                All
+              </Button>
+            ) : (
+              <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] font-mono text-muted-foreground" onClick={collapseAll}>
+                Hide
+              </Button>
+            )}
+          </div>
+          <div className="w-px h-5 bg-border" />
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={zoomOut}>
             <ZoomOut className="w-3.5 h-3.5" />
           </Button>
