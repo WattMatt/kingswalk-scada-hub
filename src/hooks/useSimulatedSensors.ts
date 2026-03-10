@@ -56,6 +56,7 @@ export function useSimulatedSensors(equipmentList: EquipmentInfo[], intervalMs =
   const [kwHistory, setKwHistory] = useState<Map<string, number[]>>(new Map());
   const basesRef = useRef<Map<string, SensorReading>>(new Map());
   const historyRef = useRef<Map<string, number[]>>(new Map());
+  const tickCountRef = useRef(0);
 
   // Build stable base values once per equipment set
   useEffect(() => {
