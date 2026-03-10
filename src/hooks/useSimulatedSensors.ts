@@ -8,6 +8,8 @@ export interface SensorReading {
   frequency: number;
 }
 
+const MAX_HISTORY = 15; // 15 ticks × 2s = 30s
+
 /** Base profiles per equipment type — realistic ranges */
 const typeProfiles: Record<string, { kw: [number, number]; v: [number, number]; pf: [number, number] }> = {
   generator:   { kw: [120, 500],  v: [380, 420],  pf: [0.85, 0.98] },
@@ -22,7 +24,6 @@ const typeProfiles: Record<string, { kw: [number, number]; v: [number, number]; 
   motor:       { kw: [15, 300],   v: [380, 420],  pf: [0.80, 0.92] },
 };
 
-/** Seed a deterministic-ish base for each equipment so readings are stable but unique */
 function hashSeed(id: string): number {
   let h = 0;
   for (let i = 0; i < id.length; i++) {
@@ -47,12 +48,14 @@ interface EquipmentInfo {
 }
 
 /**
- * Simulates real-time sensor readings for a list of equipment.
- * Updates every `intervalMs` (default 2s) with small fluctuations.
+ * Simulates real-time sensor readings with kW history for sparklines.
+ * Updates every `intervalMs` (default 2s).
  */
 export function useSimulatedSensors(equipmentList: EquipmentInfo[], intervalMs = 2000) {
   const [readings, setReadings] = useState<Map<string, SensorReading>>(new Map());
+  const [kwHistory, setKwHistory] = useState<Map<string, number[]>>(new Map());
   const basesRef = useRef<Map<string, SensorReading>>(new Map());
+  const historyRef = useRef<Map<string, number[]>>(new Map());
 
   // Build stable base values once per equipment set
   useEffect(() => {
@@ -84,39 +87,49 @@ export function useSimulatedSensors(equipmentList: EquipmentInfo[], intervalMs =
     basesRef.current = bases;
   }, [equipmentList]);
 
-  // Tick: apply jitter to base values
+  // Tick: apply jitter and accumulate history
   useEffect(() => {
     function tick() {
       const newReadings = new Map<string, SensorReading>();
+      const newHistory = new Map<string, number[]>(historyRef.current);
+
       equipmentList.forEach((eq) => {
         const base = basesRef.current.get(eq.id);
         if (!base) return;
 
-        // Offline / maintenance → zero readings
         if (eq.status === "offline" || eq.status === "maintenance") {
-          newReadings.set(eq.id, { kw: 0, voltage: 0, current: 0, powerFactor: 0, frequency: 0 });
+          const r: SensorReading = { kw: 0, voltage: 0, current: 0, powerFactor: 0, frequency: 0 };
+          newReadings.set(eq.id, r);
+          const prev = newHistory.get(eq.id) || [];
+          newHistory.set(eq.id, [...prev, 0].slice(-MAX_HISTORY));
           return;
         }
 
-        // Standby → very low
         const scale = eq.status === "standby" ? 0.05 : 1;
         const fluctuation = eq.status === "fault" || eq.status === "warning" ? 0.12 : 0.03;
 
+        const kwVal = Math.round(jitter(base.kw * scale, fluctuation) * 10) / 10;
         newReadings.set(eq.id, {
-          kw: Math.round(jitter(base.kw * scale, fluctuation) * 10) / 10,
+          kw: kwVal,
           voltage: Math.round(jitter(base.voltage * (eq.status === "standby" ? 0.95 : 1), fluctuation * 0.3) * 10) / 10,
           current: Math.round(jitter(base.current * scale, fluctuation) * 10) / 10,
           powerFactor: Math.round(Math.min(1, jitter(base.powerFactor, fluctuation * 0.2)) * 100) / 100,
           frequency: Math.round(jitter(base.frequency, 0.002) * 100) / 100,
         });
+
+        const prev = newHistory.get(eq.id) || [];
+        newHistory.set(eq.id, [...prev, kwVal].slice(-MAX_HISTORY));
       });
+
+      historyRef.current = newHistory;
       setReadings(newReadings);
+      setKwHistory(new Map(newHistory));
     }
 
-    tick(); // immediate first reading
+    tick();
     const id = setInterval(tick, intervalMs);
     return () => clearInterval(id);
   }, [equipmentList, intervalMs]);
 
-  return readings;
+  return { readings, kwHistory };
 }
