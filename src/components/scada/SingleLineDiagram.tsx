@@ -247,32 +247,40 @@ export function SingleLineDiagram() {
       {/* Toolbar */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-1">
-          {([
-            { id: "select" as Mode, icon: MousePointer, label: "Select" },
-            { id: "move" as Mode, icon: Lock, label: "Move" },
-            { id: "connect" as Mode, icon: Cable, label: "Connect" },
-          ]).map((btn) => (
-            <Button
-              key={btn.id}
-              variant={mode === btn.id ? "default" : "ghost"}
-              size="sm"
-              className="h-7 gap-1.5 text-xs font-mono"
-              onClick={() => {
-                setMode(btn.id);
-                setConnectFrom(null);
-                setConnectMouse(null);
-                setDragNode(null);
-              }}
-            >
-              <btn.icon className="w-3.5 h-3.5" />
-              {btn.label}
-            </Button>
-          ))}
-          <div className="w-px h-5 bg-border mx-1" />
-          <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs font-mono" onClick={handleAutoLayout}>
-            <LayoutGrid className="w-3.5 h-3.5" />
-            Auto Layout
-          </Button>
+          <h3 className="text-sm font-semibold uppercase tracking-wider mr-2">Single Line Diagram</h3>
+          {configMode && (
+            <>
+              {([
+                { id: "select" as Mode, icon: MousePointer, label: "Select" },
+                { id: "move" as Mode, icon: Unlock, label: "Move" },
+                { id: "connect" as Mode, icon: Cable, label: "Connect" },
+              ]).map((btn) => {
+                const Icon = btn.icon;
+                return (
+                  <Button
+                    key={btn.id}
+                    variant={mode === btn.id ? "default" : "ghost"}
+                    size="sm"
+                    className="h-7 gap-1.5 text-xs font-mono"
+                    onClick={() => {
+                      setInternalMode(btn.id);
+                      setConnectFrom(null);
+                      setConnectMouse(null);
+                      setDragNode(null);
+                    }}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {btn.label}
+                  </Button>
+                );
+              })}
+              <div className="w-px h-5 bg-border mx-1" />
+              <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs font-mono" onClick={handleAutoLayout}>
+                <LayoutGrid className="w-3.5 h-3.5" />
+                Auto Layout
+              </Button>
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-1">
