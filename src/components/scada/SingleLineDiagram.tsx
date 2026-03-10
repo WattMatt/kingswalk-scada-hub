@@ -1,14 +1,15 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useEquipment, useUpdateEquipment, useEquipmentConnections, useCreateConnection } from "@/hooks/useEquipment";
+import { useConfigMode } from "@/hooks/useConfigMode";
 import { getSymbolComponent, statusColors, statusGlowFilters, getStatusGlowFilter } from "./sld/SLDSymbols";
 import { autoLayout } from "./sld/SLDAutoLayout";
 import { Button } from "@/components/ui/button";
 import {
-  ZoomIn, ZoomOut, Maximize2, Lock, Unlock, LayoutGrid, Cable, MousePointer,
+  ZoomIn, ZoomOut, Maximize2, Unlock, LayoutGrid, Cable, MousePointer,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Equipment, EquipmentConnection } from "@/hooks/useEquipment";
+import type { Equipment } from "@/hooks/useEquipment";
 
 type Mode = "select" | "move" | "connect";
 
