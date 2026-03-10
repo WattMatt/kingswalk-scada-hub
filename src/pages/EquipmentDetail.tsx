@@ -194,6 +194,9 @@ const EquipmentDetail = () => {
             )}
           </div>
 
+          {/* Sensor History Chart - Full Width */}
+          <SensorHistoryChart equipmentId={equipment.id} />
+
           {/* Document Repository - Full Width */}
           <Card className="border-border bg-card">
             <CardHeader className="pb-2">
