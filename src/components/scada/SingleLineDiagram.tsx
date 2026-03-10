@@ -804,11 +804,11 @@ export function SingleLineDiagram() {
                       </text>
                       <text x={8} y={63} fill="hsl(215, 15%, 50%)" fontSize="7" fontFamily="IBM Plex Mono">kW</text>
                       {/* Voltage */}
-                      <text x={-36} y={74} fill={isZero ? "hsl(215, 15%, 40%)" : "hsl(43, 96%, 56%)"} fontSize="8" fontFamily="IBM Plex Mono">
+                      <text x={-36} y={74} fill={isZero ? "hsl(215, 15%, 40%)" : alarmBreach.metrics.includes("voltage") ? "#ef4444" : "hsl(43, 96%, 56%)"} fontSize="8" fontFamily="IBM Plex Mono" fontWeight={alarmBreach.metrics.includes("voltage") ? "bold" : "normal"}>
                         {reading.voltage.toFixed(0)}V
                       </text>
                       {/* Current */}
-                      <text x={4} y={74} fill={isZero ? "hsl(215, 15%, 40%)" : "hsl(199, 89%, 48%)"} fontSize="8" fontFamily="IBM Plex Mono">
+                      <text x={4} y={74} fill={isZero ? "hsl(215, 15%, 40%)" : alarmBreach.metrics.includes("current") ? "#ef4444" : "hsl(199, 89%, 48%)"} fontSize="8" fontFamily="IBM Plex Mono" fontWeight={alarmBreach.metrics.includes("current") ? "bold" : "normal"}>
                         {reading.current.toFixed(1)}A
                       </text>
                       {/* PF + Hz */}
