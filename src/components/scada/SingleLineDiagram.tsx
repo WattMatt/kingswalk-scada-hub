@@ -35,6 +35,10 @@ export function SingleLineDiagram() {
   );
   const { readings: sensorReadings, kwHistory } = useSimulatedSensors(sensorInput);
 
+  // Alarm thresholds
+  const { data: thresholds = [] } = useAlarmThresholds();
+  const thresholdMap = useMemo(() => buildThresholdMap(thresholds), [thresholds]);
+
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
