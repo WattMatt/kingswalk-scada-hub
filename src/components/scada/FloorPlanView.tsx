@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ZoomIn, ZoomOut, Maximize2, Lock, Unlock, Zap, CircleDot, ToggleRight, Cable, Cpu, SunMedium, PanelTop, Gauge, Activity, Cog } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, Unlock, Zap, CircleDot, ToggleRight, Cable, Cpu, SunMedium, PanelTop, Gauge, Activity, Cog } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useMarkerStore, type MarkerConfig } from "@/hooks/useMarkerStore";
+import { useConfigMode } from "@/hooks/useConfigMode";
 
 const typeColor: Record<string, string> = {
   generator: "bg-scada-green",
