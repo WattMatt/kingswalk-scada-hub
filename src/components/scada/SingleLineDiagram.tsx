@@ -618,6 +618,13 @@ export function SingleLineDiagram() {
             const glowFilter = getStatusGlowFilter(item.status);
             const barExtent = busbarExtents.get(item.id);
 
+            // Alarm threshold breach check
+            const reading = sensorReadings.get(item.id);
+            const alarmBreach = reading
+              ? checkAlarmBreach(item.type, reading, thresholdMap)
+              : { breached: false, metrics: [] as string[] };
+            const isAlarming = alarmBreach.breached && item.status !== "offline" && item.status !== "maintenance";
+
             // === Spanning busbar rendering ===
             if (barExtent && item.type === "bus") {
               const barW = barExtent.right - barExtent.left;
