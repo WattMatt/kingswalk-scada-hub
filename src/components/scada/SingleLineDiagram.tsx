@@ -737,17 +737,26 @@ export function SingleLineDiagram() {
                   </circle>
                 )}
 
+                {/* Alarm flash ring */}
+                {isAlarming && (
+                  <g filter="url(#alarm-flash)">
+                    <circle cx={0} cy={0} r={34} fill="none" stroke="#ef4444" strokeWidth="3">
+                      <animate attributeName="opacity" values="1;0.3;1" dur="0.8s" repeatCount="indefinite" />
+                    </circle>
+                  </g>
+                )}
+
                 {/* Glow effect for active equipment */}
-                {glowFilter && (
+                {glowFilter && !isAlarming && (
                   <circle cx={0} cy={0} r={28} fill={color} opacity="0.15" filter={glowFilter} />
                 )}
 
                 {/* Equipment symbol */}
-                <Symbol color={color} size={48} />
+                <Symbol color={isAlarming ? "#ef4444" : color} size={48} />
 
                 {/* Status dot */}
-                <circle cx={26} cy={-20} r={5} fill={color} stroke="hsl(220, 18%, 10%)" strokeWidth="2">
-                  {item.status === "online" && (
+                <circle cx={26} cy={-20} r={5} fill={isAlarming ? "#ef4444" : color} stroke="hsl(220, 18%, 10%)" strokeWidth="2">
+                  {(item.status === "online" || isAlarming) && (
                     <animate attributeName="r" values="5;6;5" dur="2s" repeatCount="indefinite" />
                   )}
                 </circle>
