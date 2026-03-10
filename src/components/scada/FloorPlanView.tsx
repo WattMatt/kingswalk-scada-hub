@@ -74,8 +74,8 @@ function MarkerShape({ marker, color, glow, editMode, children }: {
 
 export function FloorPlanView() {
   const navigate = useNavigate();
+  const { configMode } = useConfigMode();
   const [zoom, setZoom] = useState(100);
-  const [editMode, setEditMode] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
