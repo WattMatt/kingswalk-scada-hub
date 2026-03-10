@@ -1,6 +1,6 @@
 import { Zap, Gauge, Activity, TrendingUp, BarChart3, Percent } from "lucide-react";
 import { useScadaData } from "@/hooks/useScadaData";
-import { useEquipment, useEquipmentConnections } from "@/hooks/useEquipment";
+
 import { ScadaLayout } from "@/components/scada/ScadaLayout";
 import { MetricCard } from "@/components/scada/MetricCard";
 import { GeneratorCard } from "@/components/scada/GeneratorCard";
