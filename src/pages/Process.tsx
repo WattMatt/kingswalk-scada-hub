@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useEquipment, useEquipmentConnections } from "@/hooks/useEquipment";
+
 import { ScadaLayout } from "@/components/scada/ScadaLayout";
 import { FloorPlanView } from "@/components/scada/FloorPlanView";
 import { SingleLineDiagram } from "@/components/scada/SingleLineDiagram";
@@ -15,8 +15,6 @@ const tabs = [
 type TabId = (typeof tabs)[number]["id"];
 
 const Process = () => {
-  const { data: dbEquipment = [] } = useEquipment();
-  const { data: connections = [] } = useEquipmentConnections();
   const [activeTab, setActiveTab] = useState<TabId>("floorplan");
 
   return (
@@ -50,7 +48,7 @@ const Process = () => {
             <FloorPlanView />
           )}
           {activeTab === "sld" && (
-            <SingleLineDiagram equipment={dbEquipment} connections={connections} />
+            <SingleLineDiagram />
           )}
           {activeTab === "pdf" && <SLDViewer />}
         </div>
