@@ -30,6 +30,8 @@ export type Database = {
           rating: number | null
           rating_unit: string | null
           serial_number: string | null
+          sld_x: number | null
+          sld_y: number | null
           status: Database["public"]["Enums"]["equipment_status"]
           tag_number: string
           type: Database["public"]["Enums"]["equipment_type"]
@@ -50,6 +52,8 @@ export type Database = {
           rating?: number | null
           rating_unit?: string | null
           serial_number?: string | null
+          sld_x?: number | null
+          sld_y?: number | null
           status?: Database["public"]["Enums"]["equipment_status"]
           tag_number: string
           type: Database["public"]["Enums"]["equipment_type"]
@@ -70,6 +74,8 @@ export type Database = {
           rating?: number | null
           rating_unit?: string | null
           serial_number?: string | null
+          sld_x?: number | null
+          sld_y?: number | null
           status?: Database["public"]["Enums"]["equipment_status"]
           tag_number?: string
           type?: Database["public"]["Enums"]["equipment_type"]
