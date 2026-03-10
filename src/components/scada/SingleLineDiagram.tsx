@@ -18,6 +18,7 @@ const CANVAS_H = 900;
 
 export function SingleLineDiagram() {
   const navigate = useNavigate();
+  const { configMode } = useConfigMode();
   const { data: equipment = [] } = useEquipment();
   const { data: connections = [] } = useEquipmentConnections();
   const updateEquipment = useUpdateEquipment();
@@ -28,7 +29,9 @@ export function SingleLineDiagram() {
 
   // View state
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: CANVAS_W, h: CANVAS_H });
-  const [mode, setMode] = useState<Mode>("select");
+  // Mode is always "select" when configMode is off
+  const [internalMode, setInternalMode] = useState<Mode>("select");
+  const mode = configMode ? internalMode : "select";
 
   // Drag state
   const [dragNode, setDragNode] = useState<string | null>(null);
