@@ -30,7 +30,7 @@ export function SingleLineDiagram() {
     equipment.map((e) => ({ id: e.id, type: e.type, status: e.status, rating: e.rating })),
     [equipment]
   );
-  const sensorReadings = useSimulatedSensors(sensorInput);
+  const { readings: sensorReadings, kwHistory } = useSimulatedSensors(sensorInput);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
