@@ -267,7 +267,7 @@ export function FloorPlanView() {
                   </div>
 
                   {/* Hover tooltip */}
-                  {!editMode && (
+                  {!configMode && (
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block pointer-events-none">
                       <div className="bg-card border border-border rounded px-2 py-1.5 shadow-lg whitespace-nowrap">
                         <p className="text-xs font-mono font-bold text-foreground">{marker.label}</p>
