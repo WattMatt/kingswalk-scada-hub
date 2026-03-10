@@ -5,9 +5,11 @@ import { useConfigMode } from "@/hooks/useConfigMode";
 import { useSimulatedSensors } from "@/hooks/useSimulatedSensors";
 import { getSymbolComponent, statusColors, statusGlowFilters, getStatusGlowFilter } from "./sld/SLDSymbols";
 import { autoLayout } from "./sld/SLDAutoLayout";
+import { SLD_GROUPS, getHiddenIds, getAnchorId, getGroupCounts, getEquipmentGroup } from "./sld/SLDGroups";
 import { Button } from "@/components/ui/button";
 import {
   ZoomIn, ZoomOut, Maximize2, Unlock, LayoutGrid, Cable, MousePointer,
+  ChevronDown, ChevronRight, Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Equipment } from "@/hooks/useEquipment";
@@ -56,6 +58,83 @@ export function SingleLineDiagram() {
 
   // Selected node
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Collapsible groups
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  const toggleGroup = useCallback((groupId: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  }, []);
+
+  const collapseAll = useCallback(() => {
+    setCollapsedGroups(new Set(SLD_GROUPS.map((g) => g.id)));
+  }, []);
+
+  const expandAll = useCallback(() => {
+    setCollapsedGroups(new Set());
+  }, []);
+
+  const hiddenIds = useMemo(
+    () => getHiddenIds(equipment, collapsedGroups),
+    [equipment, collapsedGroups]
+  );
+
+  const groupCounts = useMemo(
+    () => getGroupCounts(equipment),
+    [equipment]
+  );
+
+  // Anchor ID lookup for collapsed groups
+  const anchorIdMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const g of SLD_GROUPS) {
+      const id = getAnchorId(equipment, g);
+      if (id) map.set(g.id, id);
+    }
+    return map;
+  }, [equipment]);
+
+  // Visible equipment (filtered by collapse state)
+  const visibleEquipment = useMemo(
+    () => equipment.filter((e) => !hiddenIds.has(e.id)),
+    [equipment, hiddenIds]
+  );
+
+  // Visible connections — hide if both endpoints hidden, redirect if one hidden
+  const visibleConnections = useMemo(() => {
+    if (hiddenIds.size === 0) return connections;
+    return connections.filter((c) => {
+      // Hide connection if BOTH endpoints are hidden
+      if (hiddenIds.has(c.from_equipment_id) && hiddenIds.has(c.to_equipment_id)) return false;
+      return true;
+    }).map((c) => {
+      // If one endpoint is hidden, redirect to the group's anchor
+      let from = c.from_equipment_id;
+      let to = c.to_equipment_id;
+
+      if (hiddenIds.has(from)) {
+        const item = equipment.find((e) => e.id === from);
+        if (item) {
+          const gId = getEquipmentGroup(item, SLD_GROUPS);
+          if (gId) from = anchorIdMap.get(gId) || from;
+        }
+      }
+      if (hiddenIds.has(to)) {
+        const item = equipment.find((e) => e.id === to);
+        if (item) {
+          const gId = getEquipmentGroup(item, SLD_GROUPS);
+          if (gId) to = anchorIdMap.get(gId) || to;
+        }
+      }
+
+      return { ...c, from_equipment_id: from, to_equipment_id: to };
+    });
+  }, [connections, hiddenIds, equipment, anchorIdMap]);
 
   // Build position map: use sld_x/sld_y from DB, fallback to auto-layout
   const positions = useMemo(() => {
@@ -292,6 +371,39 @@ export function SingleLineDiagram() {
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Group collapse controls */}
+          <div className="flex items-center gap-0.5 mr-1">
+            <Layers className="w-3.5 h-3.5 text-muted-foreground" />
+            {SLD_GROUPS.map((g) => {
+              const isCollapsed = collapsedGroups.has(g.id);
+              const count = groupCounts.get(g.id) || 0;
+              if (count === 0) return null;
+              return (
+                <Button
+                  key={g.id}
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-1.5 text-[10px] font-mono gap-1"
+                  style={{ color: g.color, opacity: isCollapsed ? 0.5 : 1 }}
+                  onClick={() => toggleGroup(g.id)}
+                  title={`${isCollapsed ? "Expand" : "Collapse"} ${g.label} (${count} nodes)`}
+                >
+                  {isCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  {g.label.replace("Section ", "S").replace("Bank ", "B")}
+                </Button>
+              );
+            })}
+            {collapsedGroups.size > 0 ? (
+              <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] font-mono text-muted-foreground" onClick={expandAll}>
+                All
+              </Button>
+            ) : (
+              <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] font-mono text-muted-foreground" onClick={collapseAll}>
+                Hide
+              </Button>
+            )}
+          </div>
+          <div className="w-px h-5 bg-border" />
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={zoomOut}>
             <ZoomOut className="w-3.5 h-3.5" />
           </Button>
@@ -353,7 +465,7 @@ export function SingleLineDiagram() {
           `}} />
 
           {/* Connection lines */}
-          {connections.map((conn) => {
+          {visibleConnections.map((conn) => {
             const from = positions.get(conn.from_equipment_id);
             const to = positions.get(conn.to_equipment_id);
             if (!from || !to) return null;
@@ -426,7 +538,7 @@ export function SingleLineDiagram() {
           })()}
 
           {/* Equipment nodes */}
-          {equipment.map((item) => {
+          {visibleEquipment.map((item) => {
             const pos = positions.get(item.id);
             if (!pos) return null;
 
@@ -567,6 +679,29 @@ export function SingleLineDiagram() {
                 <text x={0} y={124} textAnchor="middle" fill={color} fontSize="8" fontFamily="IBM Plex Mono" fontWeight="bold">
                   {item.status.toUpperCase()}
                 </text>
+
+                {/* Collapsed group badge — show on anchor nodes */}
+                {(() => {
+                  const group = SLD_GROUPS.find((g) => g.anchorTag === item.tag_number);
+                  if (!group || !collapsedGroups.has(group.id)) return null;
+                  const count = groupCounts.get(group.id) || 0;
+                  return (
+                    <g
+                      className="cursor-pointer"
+                      onClick={(e) => { e.stopPropagation(); toggleGroup(group.id); }}
+                    >
+                      <rect x={-40} y={130} width={80} height={20} rx={4}
+                        fill={group.color} fillOpacity="0.15"
+                        stroke={group.color} strokeWidth="1" strokeOpacity="0.4" />
+                      <text x={0} y={143} textAnchor="middle" fill={group.color} fontSize="8" fontFamily="IBM Plex Mono" fontWeight="bold">
+                        {group.label} ({count})
+                      </text>
+                      <text x={0} y={155} textAnchor="middle" fill="hsl(215, 15%, 50%)" fontSize="7" fontFamily="IBM Plex Mono">
+                        click to expand
+                      </text>
+                    </g>
+                  );
+                })()}
 
                 {/* Invisible hit area for easier clicking */}
                 <rect x={-45} y={-35} width={90} height={168} fill="transparent" />
