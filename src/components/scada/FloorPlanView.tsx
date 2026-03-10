@@ -247,7 +247,7 @@ export function FloorPlanView() {
               return (
                 <div
                   key={marker.id}
-                  className={`absolute z-10 group ${editMode ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
+                  className={`absolute z-10 group ${configMode ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
                   style={{
                     left: `${marker.left}%`,
                     top: `${marker.top}%`,
