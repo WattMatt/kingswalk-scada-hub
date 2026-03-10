@@ -124,6 +124,34 @@ export function useSimulatedSensors(equipmentList: EquipmentInfo[], intervalMs =
       historyRef.current = newHistory;
       setReadings(newReadings);
       setKwHistory(new Map(newHistory));
+
+      // Persist to DB (fire-and-forget, every other tick to reduce writes)
+      tickCountRef.current += 1;
+      if (tickCountRef.current % 3 === 0) {
+        const rows: Array<{
+          equipment_id: string;
+          kw: number;
+          voltage: number;
+          current: number;
+          power_factor: number;
+          frequency: number;
+        }> = [];
+        newReadings.forEach((r, eqId) => {
+          rows.push({
+            equipment_id: eqId,
+            kw: r.kw,
+            voltage: r.voltage,
+            current: r.current,
+            power_factor: r.powerFactor,
+            frequency: r.frequency,
+          });
+        });
+        if (rows.length > 0) {
+          supabase.from("sensor_readings").insert(rows).then(({ error }) => {
+            if (error) console.warn("Sensor persist error:", error.message);
+          });
+        }
+      }
     }
 
     tick();
