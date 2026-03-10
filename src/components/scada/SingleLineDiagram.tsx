@@ -797,7 +797,7 @@ export function SingleLineDiagram() {
                       {/* Background panel — taller to fit sparkline */}
                       <rect x={-42} y={50} width={84} height={64} rx={4}
                         fill="hsl(220, 18%, 10%)" fillOpacity="0.85"
-                        stroke="hsl(215, 15%, 25%)" strokeWidth="0.5" />
+                        stroke={isAlarming ? "#ef4444" : "hsl(215, 15%, 25%)"} strokeWidth={isAlarming ? "1.5" : "0.5"} />
                       {/* kW */}
                       <text x={-36} y={63} fill={isZero ? "hsl(215, 15%, 40%)" : "#22c55e"} fontSize="9" fontFamily="IBM Plex Mono" fontWeight="bold">
                         {reading.kw.toFixed(1)}
