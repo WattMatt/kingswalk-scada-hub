@@ -1,57 +1,231 @@
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useEquipment, useUpdateEquipment, useEquipmentConnections, useCreateConnection } from "@/hooks/useEquipment";
+import { getSymbolComponent, statusColors, statusGlowFilters, getStatusGlowFilter } from "./sld/SLDSymbols";
+import { autoLayout } from "./sld/SLDAutoLayout";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  ZoomIn, ZoomOut, Maximize2, Lock, Unlock, LayoutGrid, Cable, MousePointer,
+} from "lucide-react";
+import { toast } from "sonner";
 import type { Equipment, EquipmentConnection } from "@/hooks/useEquipment";
-import { Zap, CircleDot, ToggleRight, Cable, Cpu, SunMedium, PanelTop, Gauge, Activity, Cog } from "lucide-react";
 
-const typeIcon: Record<string, typeof Zap> = {
-  generator: Zap,
-  transformer: CircleDot,
-  inverter: SunMedium,
-  switchgear: Cpu,
-  breaker: ToggleRight,
-  bus: Cable,
-  panel: PanelTop,
-  meter: Gauge,
-  vfd: Activity,
-  motor: Cog,
-};
+type Mode = "select" | "move" | "connect";
 
-const statusColor: Record<string, string> = {
-  online: "#22c55e",
-  offline: "#6b7280",
-  standby: "#f59e0b",
-  warning: "#f59e0b",
-  fault: "#ef4444",
-  maintenance: "#3b82f6",
-};
+const CANVAS_W = 1400;
+const CANVAS_H = 900;
 
-interface SingleLineDiagramProps {
-  equipment: Equipment[];
-  connections: EquipmentConnection[];
-}
-
-export function SingleLineDiagram({ equipment, connections }: SingleLineDiagramProps) {
+export function SingleLineDiagram() {
   const navigate = useNavigate();
+  const { data: equipment = [] } = useEquipment();
+  const { data: connections = [] } = useEquipmentConnections();
+  const updateEquipment = useUpdateEquipment();
+  const createConnection = useCreateConnection();
 
-  // Group equipment by type for layout
-  const generators = equipment.filter((e) => e.type === "generator");
-  const transformers = equipment.filter((e) => e.type === "transformer");
-  const inverters = equipment.filter((e) => e.type === "inverter");
-  const breakers = equipment.filter((e) => e.type === "breaker");
-  const switchgear = equipment.filter((e) => e.type === "switchgear");
-  const buses = equipment.filter((e) => e.type === "bus");
-  const others = equipment.filter((e) => !["generator", "transformer", "inverter", "breaker", "switchgear", "bus"].includes(e.type));
+  const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Layout: bus bar at top, equipment below grouped by type
-  const allItems = [...generators, ...transformers, ...inverters, ...breakers, ...switchgear, ...others];
-  const itemCount = Math.max(allItems.length, 1);
-  const spacing = Math.min(170, 750 / itemCount);
-  const svgWidth = Math.max(800, itemCount * spacing + 100);
+  // View state
+  const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: CANVAS_W, h: CANVAS_H });
+  const [mode, setMode] = useState<Mode>("select");
 
-  const handleClick = (item: Equipment) => {
+  // Drag state
+  const [dragNode, setDragNode] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState({ dx: 0, dy: 0 });
+
+  // Connection drawing
+  const [connectFrom, setConnectFrom] = useState<string | null>(null);
+  const [connectMouse, setConnectMouse] = useState<{ x: number; y: number } | null>(null);
+
+  // Pan state
+  const panRef = useRef<{ active: boolean; startX: number; startY: number; startVBX: number; startVBY: number }>({
+    active: false, startX: 0, startY: 0, startVBX: 0, startVBY: 0,
+  });
+
+  // Selected node
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Build position map: use sld_x/sld_y from DB, fallback to auto-layout
+  const positions = useMemo(() => {
+    const map = new Map<string, { x: number; y: number }>();
+    const needsLayout: Equipment[] = [];
+
+    equipment.forEach((e) => {
+      if (e.sld_x != null && e.sld_y != null) {
+        map.set(e.id, { x: Number(e.sld_x), y: Number(e.sld_y) });
+      } else {
+        needsLayout.push(e);
+      }
+    });
+
+    if (needsLayout.length > 0) {
+      const autoPositions = autoLayout(needsLayout, connections, CANVAS_W, CANVAS_H);
+      autoPositions.forEach((pos, id) => map.set(id, pos));
+    }
+
+    return map;
+  }, [equipment, connections]);
+
+  // SVG coordinate helpers
+  const svgPoint = useCallback((clientX: number, clientY: number) => {
+    const svg = svgRef.current;
+    if (!svg) return { x: 0, y: 0 };
+    const pt = svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    const svgPt = pt.matrixTransform(svg.getScreenCTM()!.inverse());
+    return { x: svgPt.x, y: svgPt.y };
+  }, []);
+
+  // Zoom
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const scaleFactor = e.deltaY > 0 ? 1.1 : 0.9;
+    const pt = svgPoint(e.clientX, e.clientY);
+
+    setViewBox((vb) => {
+      const newW = Math.max(300, Math.min(CANVAS_W * 3, vb.w * scaleFactor));
+      const newH = Math.max(200, Math.min(CANVAS_H * 3, vb.h * scaleFactor));
+      const newX = pt.x - (pt.x - vb.x) * (newW / vb.w);
+      const newY = pt.y - (pt.y - vb.y) * (newH / vb.h);
+      return { x: newX, y: newY, w: newW, h: newH };
+    });
+  }, [svgPoint]);
+
+  // Zoom buttons
+  const zoomIn = () => setViewBox((vb) => ({
+    x: vb.x + vb.w * 0.1, y: vb.y + vb.h * 0.1,
+    w: vb.w * 0.8, h: vb.h * 0.8,
+  }));
+  const zoomOut = () => setViewBox((vb) => ({
+    x: vb.x - vb.w * 0.125, y: vb.y - vb.h * 0.125,
+    w: vb.w * 1.25, h: vb.h * 1.25,
+  }));
+  const resetView = () => setViewBox({ x: 0, y: 0, w: CANVAS_W, h: CANVAS_H });
+
+  // Pan
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    // If not clicking on a node, start panning
+    if ((e.target as SVGElement).closest("[data-sld-node]")) return;
+    if (mode === "connect" && connectFrom) {
+      // Cancel connection
+      setConnectFrom(null);
+      setConnectMouse(null);
+      return;
+    }
+    panRef.current = { active: true, startX: e.clientX, startY: e.clientY, startVBX: viewBox.x, startVBY: viewBox.y };
+    setSelectedId(null);
+  }, [viewBox, mode, connectFrom]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    const pt = svgPoint(e.clientX, e.clientY);
+
+    // Connection drawing
+    if (mode === "connect" && connectFrom) {
+      setConnectMouse(pt);
+    }
+
+    // Node dragging
+    if (mode === "move" && dragNode) {
+      const newX = Math.max(40, Math.min(CANVAS_W - 40, pt.x + dragOffset.dx));
+      const newY = Math.max(40, Math.min(CANVAS_H - 40, pt.y + dragOffset.dy));
+      // Update local position immediately for responsiveness
+      positions.set(dragNode, { x: newX, y: newY });
+      // Force re-render
+      setDragOffset((d) => ({ ...d }));
+      return;
+    }
+
+    // Panning
+    if (panRef.current.active) {
+      const svg = svgRef.current;
+      if (!svg) return;
+      const ctm = svg.getScreenCTM();
+      if (!ctm) return;
+      const dx = (e.clientX - panRef.current.startX) / ctm.a;
+      const dy = (e.clientY - panRef.current.startY) / ctm.d;
+      setViewBox((vb) => ({
+        ...vb,
+        x: panRef.current.startVBX - dx,
+        y: panRef.current.startVBY - dy,
+      }));
+    }
+  }, [mode, dragNode, connectFrom, dragOffset, positions, svgPoint]);
+
+  const handleMouseUp = useCallback(() => {
+    // Save drag position to DB
+    if (mode === "move" && dragNode) {
+      const pos = positions.get(dragNode);
+      if (pos) {
+        updateEquipment.mutate({
+          id: dragNode,
+          sld_x: Math.round(pos.x),
+          sld_y: Math.round(pos.y),
+        });
+      }
+      setDragNode(null);
+    }
+    panRef.current.active = false;
+  }, [mode, dragNode, positions, updateEquipment]);
+
+  // Node interaction
+  const handleNodeMouseDown = useCallback((e: React.MouseEvent, item: Equipment) => {
+    e.stopPropagation();
+
+    if (mode === "move") {
+      const pt = svgPoint(e.clientX, e.clientY);
+      const pos = positions.get(item.id) || { x: 0, y: 0 };
+      setDragNode(item.id);
+      setDragOffset({ dx: pos.x - pt.x, dy: pos.y - pt.y });
+      return;
+    }
+
+    if (mode === "connect") {
+      if (!connectFrom) {
+        setConnectFrom(item.id);
+        toast.info(`Click another equipment to connect from ${item.tag_number}`);
+      } else if (connectFrom !== item.id) {
+        // Check if connection already exists
+        const exists = connections.some(
+          (c) =>
+            (c.from_equipment_id === connectFrom && c.to_equipment_id === item.id) ||
+            (c.from_equipment_id === item.id && c.to_equipment_id === connectFrom)
+        );
+        if (exists) {
+          toast.warning("Connection already exists");
+        } else {
+          createConnection.mutate(
+            { from_equipment_id: connectFrom, to_equipment_id: item.id, connection_type: "electrical" },
+            { onSuccess: () => toast.success("Connection created") }
+          );
+        }
+        setConnectFrom(null);
+        setConnectMouse(null);
+      }
+      return;
+    }
+
+    // Select mode — navigate to detail
+    setSelectedId(item.id);
+  }, [mode, connectFrom, connections, createConnection, positions, svgPoint]);
+
+  const handleNodeDoubleClick = useCallback((item: Equipment) => {
     navigate(`/equipment/${item.id}`);
-  };
+  }, [navigate]);
 
-  // If no equipment registered, show placeholder
+  // Auto-layout button
+  const handleAutoLayout = useCallback(() => {
+    const newPositions = autoLayout(equipment, connections, CANVAS_W, CANVAS_H);
+    const updates: Promise<unknown>[] = [];
+    newPositions.forEach((pos, id) => {
+      updateEquipment.mutate({ id, sld_x: Math.round(pos.x), sld_y: Math.round(pos.y) });
+    });
+    toast.success("Auto-layout applied");
+  }, [equipment, connections, updateEquipment]);
+
+  // Empty state
   if (equipment.length === 0) {
     return (
       <div className="scada-panel p-4 h-full flex items-center justify-center">
@@ -66,137 +240,149 @@ export function SingleLineDiagram({ equipment, connections }: SingleLineDiagramP
   }
 
   return (
-    <div className="scada-panel p-4 h-full flex flex-col">
-      <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Single Line Diagram</h3>
-      <div className="flex-1 scada-grid-bg rounded p-2 overflow-auto">
-        <svg viewBox={`0 0 ${svgWidth} 380`} className="w-full h-auto" style={{ minHeight: 300 }}>
-          {/* Main Bus Bar */}
-          <line x1="40" y1="60" x2={svgWidth - 40} y2="60" stroke="hsl(43, 96%, 56%)" strokeWidth="4" />
-          <text x={svgWidth / 2} y="45" textAnchor="middle" fill="hsl(215, 15%, 55%)" fontSize="11" fontFamily="IBM Plex Mono">
-            {buses.length > 0 ? buses[0].tag_number : "MAIN BUS"}
-          </text>
+    <div className="scada-panel p-3 h-full flex flex-col gap-2">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-1">
+          {([
+            { id: "select" as Mode, icon: MousePointer, label: "Select" },
+            { id: "move" as Mode, icon: Lock, label: "Move" },
+            { id: "connect" as Mode, icon: Cable, label: "Connect" },
+          ]).map((btn) => (
+            <Button
+              key={btn.id}
+              variant={mode === btn.id ? "default" : "ghost"}
+              size="sm"
+              className="h-7 gap-1.5 text-xs font-mono"
+              onClick={() => {
+                setMode(btn.id);
+                setConnectFrom(null);
+                setConnectMouse(null);
+                setDragNode(null);
+              }}
+            >
+              <btn.icon className="w-3.5 h-3.5" />
+              {btn.label}
+            </Button>
+          ))}
+          <div className="w-px h-5 bg-border mx-1" />
+          <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs font-mono" onClick={handleAutoLayout}>
+            <LayoutGrid className="w-3.5 h-3.5" />
+            Auto Layout
+          </Button>
+        </div>
 
-          {/* Bus bar clickable area */}
-          {buses[0] && (
-            <rect
-              x="40" y="50" width={svgWidth - 80} height="20"
-              fill="transparent" cursor="pointer"
-              onClick={() => handleClick(buses[0])}
-            />
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={zoomOut}>
+            <ZoomOut className="w-3.5 h-3.5" />
+          </Button>
+          <span className="text-[10px] font-mono text-muted-foreground w-10 text-center">
+            {Math.round((CANVAS_W / viewBox.w) * 100)}%
+          </span>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={zoomIn}>
+            <ZoomIn className="w-3.5 h-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={resetView}>
+            <Maximize2 className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Mode indicator */}
+      {mode !== "select" && (
+        <div className={`flex items-center gap-2 px-2 py-1 rounded text-xs font-mono border ${
+          mode === "move"
+            ? "bg-scada-amber/10 border-scada-amber/30 text-scada-amber"
+            : "bg-primary/10 border-primary/30 text-primary"
+        }`}>
+          {mode === "move" ? (
+            <>
+              <Unlock className="w-3 h-3" />
+              Drag equipment to reposition — positions save to Cloud
+            </>
+          ) : (
+            <>
+              <Cable className="w-3 h-3" />
+              {connectFrom
+                ? `Click target equipment to complete connection…`
+                : `Click source equipment to start a connection`}
+            </>
           )}
+        </div>
+      )}
 
-          {/* Render each item */}
-          {allItems.map((item, i) => {
-            const x = 80 + i * spacing;
-            const color = statusColor[item.status] || "#6b7280";
-            const isGen = item.type === "generator";
-            const isInverter = item.type === "inverter";
-            const isTransformer = item.type === "transformer";
-            const isBreaker = item.type === "breaker";
+      {/* SVG Canvas */}
+      <div
+        ref={containerRef}
+        className="flex-1 rounded border border-border overflow-hidden scada-grid-bg"
+        style={{ cursor: mode === "move" ? "grab" : mode === "connect" ? "crosshair" : "default" }}
+      >
+        <svg
+          ref={svgRef}
+          viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
+          className="w-full h-full"
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        >
+          <defs dangerouslySetInnerHTML={{ __html: statusGlowFilters + `
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(215, 15%, 45%)" />
+            </marker>
+          `}} />
 
-            return (
-              <g key={item.id} className="cursor-pointer" onClick={() => handleClick(item)}>
-                {/* Connection line to bus */}
-                <line x1={x} y1="60" x2={x} y2="120" stroke={color} strokeWidth="2" />
-
-                {/* Circuit breaker symbol */}
-                <rect x={x - 8} y="80" width="16" height="16" rx="2"
-                  fill={item.status === "online" || item.status === "standby" ? color : "hsl(220, 14%, 20%)"}
-                  stroke={color} strokeWidth="1.5" />
-                <text x={x} y="91" textAnchor="middle" fill="hsl(220, 20%, 10%)" fontSize="7" fontFamily="IBM Plex Mono" fontWeight="bold">
-                  CB
-                </text>
-
-                {/* Equipment symbol */}
-                {isTransformer ? (
-                  <>
-                    <circle cx={x} cy="140" r="16" fill="none" stroke={color} strokeWidth="1.5" />
-                    <circle cx={x} cy="155" r="16" fill="none" stroke={color} strokeWidth="1.5" />
-                    <line x1={x} y1="171" x2={x} y2="210" stroke={color} strokeWidth="2" />
-                  </>
-                ) : isInverter ? (
-                  <>
-                    <rect x={x - 18} y="125" width="36" height="28" rx="3" fill="hsl(220, 18%, 13%)" stroke={color} strokeWidth="1.5" />
-                    <text x={x} y="143" textAnchor="middle" fill={color} fontSize="10" fontFamily="IBM Plex Mono" fontWeight="bold">INV</text>
-                    <line x1={x} y1="153" x2={x} y2="210" stroke={color} strokeWidth="2" />
-                  </>
-                ) : isBreaker ? (
-                  <>
-                    <rect x={x - 12} y="125" width="24" height="20" rx="2" fill="hsl(220, 18%, 13%)" stroke={color} strokeWidth="1.5" />
-                    <line x1={x - 6} y1="135" x2={x + 6} y2="135" stroke={color} strokeWidth="2" />
-                    <line x1={x} y1="145" x2={x} y2="210" stroke={color} strokeWidth="2" />
-                  </>
-                ) : (
-                  <>
-                    <line x1={x} y1="120" x2={x} y2="210" stroke={color} strokeWidth="2" />
-                  </>
-                )}
-
-                {/* Main symbol circle/shape */}
-                {isGen ? (
-                  <circle cx={x} cy="235" r="28" fill="hsl(220, 18%, 13%)" stroke={color} strokeWidth="2" />
-                ) : (
-                  <rect x={x - 24} y="212" width="48" height="36" rx="4" fill="hsl(220, 18%, 13%)" stroke={color} strokeWidth="1.5" />
-                )}
-
-                {/* Label inside symbol */}
-                <text x={x} y={isGen ? 232 : 226} textAnchor="middle" fill={color} fontSize="9" fontFamily="IBM Plex Mono" fontWeight="bold">
-                  {item.tag_number.length > 8 ? item.tag_number.slice(0, 8) : item.tag_number}
-                </text>
-                {item.rating && (
-                  <text x={x} y={isGen ? 246 : 240} textAnchor="middle" fill="hsl(215, 15%, 55%)" fontSize="8" fontFamily="IBM Plex Mono">
-                    {item.rating}{item.rating_unit ?? ""}
-                  </text>
-                )}
-
-                {/* Status indicator */}
-                <circle cx={x + (isGen ? 22 : 20)} cy={isGen ? 215 : 214} r="4" fill={color}>
-                  {item.status === "online" && (
-                    <animate attributeName="opacity" values="1;0.4;1" dur="2s" repeatCount="indefinite" />
-                  )}
-                </circle>
-
-                {/* Bottom label */}
-                <text x={x} y="280" textAnchor="middle" fill="hsl(210, 20%, 80%)" fontSize="9" fontFamily="IBM Plex Mono">
-                  {item.name.length > 14 ? item.name.slice(0, 14) + "…" : item.name}
-                </text>
-                <text x={x} y="294" textAnchor="middle" fill="hsl(215, 15%, 55%)" fontSize="8" fontFamily="IBM Plex Mono">
-                  {item.status.toUpperCase()}
-                </text>
-                <text x={x} y="306" textAnchor="middle" fill="hsl(215, 15%, 45%)" fontSize="7" fontFamily="IBM Plex Mono" className="capitalize">
-                  {item.type}
-                </text>
-
-                {/* Hover highlight */}
-                <rect
-                  x={x - 30} y="70" width="60" height="250" rx="4"
-                  fill="transparent" stroke="transparent"
-                  className="hover:stroke-primary/30"
-                  strokeWidth="2"
-                />
-              </g>
-            );
-          })}
-
-          {/* Connection lines between linked equipment */}
+          {/* Connection lines */}
           {connections.map((conn) => {
-            const fromIdx = allItems.findIndex((e) => e.id === conn.from_equipment_id);
-            const toIdx = allItems.findIndex((e) => e.id === conn.to_equipment_id);
-            if (fromIdx === -1 || toIdx === -1) return null;
-            const fromX = 80 + fromIdx * spacing;
-            const toX = 80 + toIdx * spacing;
-            const midY = 340;
+            const from = positions.get(conn.from_equipment_id);
+            const to = positions.get(conn.to_equipment_id);
+            if (!from || !to) return null;
+
+            const isHighlighted = selectedId === conn.from_equipment_id || selectedId === conn.to_equipment_id;
+
             return (
               <g key={conn.id}>
-                <path
-                  d={`M ${fromX} 270 L ${fromX} ${midY} L ${toX} ${midY} L ${toX} 270`}
-                  fill="none"
-                  stroke="hsl(215, 15%, 35%)"
-                  strokeWidth="1"
-                  strokeDasharray="4 2"
+                {/* Shadow line for glow */}
+                <line
+                  x1={from.x} y1={from.y} x2={to.x} y2={to.y}
+                  stroke={isHighlighted ? "#22c55e" : "hsl(215, 15%, 25%)"}
+                  strokeWidth={isHighlighted ? 4 : 2}
+                  opacity={isHighlighted ? 0.3 : 0.1}
                 />
+                {/* Main line */}
+                <line
+                  x1={from.x} y1={from.y} x2={to.x} y2={to.y}
+                  stroke={isHighlighted ? "#22c55e" : "hsl(215, 15%, 40%)"}
+                  strokeWidth={isHighlighted ? 2 : 1.5}
+                  markerEnd="url(#arrow)"
+                />
+                {/* Animated power flow dots */}
+                <circle r="3" fill="#22c55e" opacity="0.8">
+                  <animateMotion
+                    dur="2s"
+                    repeatCount="indefinite"
+                    path={`M ${from.x} ${from.y} L ${to.x} ${to.y}`}
+                  />
+                </circle>
+                <circle r="3" fill="#22c55e" opacity="0.5">
+                  <animateMotion
+                    dur="2s"
+                    repeatCount="indefinite"
+                    begin="1s"
+                    path={`M ${from.x} ${from.y} L ${to.x} ${to.y}`}
+                  />
+                </circle>
+                {/* Connection label */}
                 {conn.label && (
-                  <text x={(fromX + toX) / 2} y={midY - 4} textAnchor="middle" fill="hsl(215, 15%, 45%)" fontSize="7" fontFamily="IBM Plex Mono">
+                  <text
+                    x={(from.x + to.x) / 2}
+                    y={(from.y + to.y) / 2 - 8}
+                    textAnchor="middle"
+                    fill="hsl(215, 15%, 55%)"
+                    fontSize="9"
+                    fontFamily="IBM Plex Mono"
+                  >
                     {conn.label}
                   </text>
                 )}
@@ -204,20 +390,101 @@ export function SingleLineDiagram({ equipment, connections }: SingleLineDiagramP
             );
           })}
 
-          {/* Grid connection */}
-          <line x1={svgWidth - 40} y1="60" x2={svgWidth - 40} y2="30" stroke="hsl(43, 96%, 56%)" strokeWidth="3" />
-          <line x1={svgWidth - 70} y1="30" x2={svgWidth - 10} y2="30" stroke="hsl(43, 96%, 56%)" strokeWidth="3" />
-          <text x={svgWidth - 40} y="20" textAnchor="middle" fill="hsl(210, 20%, 80%)" fontSize="10" fontFamily="IBM Plex Mono">
-            GRID
-          </text>
+          {/* Connection being drawn */}
+          {connectFrom && connectMouse && (() => {
+            const fromPos = positions.get(connectFrom);
+            if (!fromPos) return null;
+            return (
+              <line
+                x1={fromPos.x} y1={fromPos.y}
+                x2={connectMouse.x} y2={connectMouse.y}
+                stroke="#22c55e"
+                strokeWidth="2"
+                strokeDasharray="6 4"
+                opacity="0.7"
+              />
+            );
+          })()}
 
-          {/* Load feeder */}
-          <line x1="40" y1="60" x2="40" y2="120" stroke="hsl(185, 70%, 50%)" strokeWidth="2" />
-          <rect x="20" y="120" width="40" height="30" rx="3" fill="none" stroke="hsl(185, 70%, 50%)" strokeWidth="1.5" />
-          <text x="40" y="140" textAnchor="middle" fill="hsl(185, 70%, 50%)" fontSize="9" fontFamily="IBM Plex Mono">
-            LOAD
-          </text>
+          {/* Equipment nodes */}
+          {equipment.map((item) => {
+            const pos = positions.get(item.id);
+            if (!pos) return null;
+
+            const color = statusColors[item.status] || "#6b7280";
+            const Symbol = getSymbolComponent(item.type);
+            const isSelected = selectedId === item.id;
+            const isConnectSource = connectFrom === item.id;
+            const glowFilter = getStatusGlowFilter(item.status);
+
+            return (
+              <g
+                key={item.id}
+                data-sld-node
+                transform={`translate(${pos.x}, ${pos.y})`}
+                className={mode === "move" ? "cursor-grab" : mode === "connect" ? "cursor-crosshair" : "cursor-pointer"}
+                onMouseDown={(e) => handleNodeMouseDown(e, item)}
+                onDoubleClick={() => handleNodeDoubleClick(item)}
+              >
+                {/* Selection ring */}
+                {(isSelected || isConnectSource) && (
+                  <circle cx={0} cy={0} r={36} fill="none" stroke={isConnectSource ? "#22c55e" : "hsl(var(--primary))"} strokeWidth="2" strokeDasharray="4 3">
+                    <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="8s" repeatCount="indefinite" />
+                  </circle>
+                )}
+
+                {/* Glow effect for active equipment */}
+                {glowFilter && (
+                  <circle cx={0} cy={0} r={28} fill={color} opacity="0.15" filter={glowFilter} />
+                )}
+
+                {/* Equipment symbol */}
+                <Symbol color={color} size={48} />
+
+                {/* Status dot */}
+                <circle cx={26} cy={-20} r={5} fill={color} stroke="hsl(220, 18%, 10%)" strokeWidth="2">
+                  {item.status === "online" && (
+                    <animate attributeName="r" values="5;6;5" dur="2s" repeatCount="indefinite" />
+                  )}
+                </circle>
+
+                {/* Tag label */}
+                <text x={0} y={42} textAnchor="middle" fill="hsl(210, 20%, 85%)" fontSize="11" fontFamily="IBM Plex Mono" fontWeight="bold">
+                  {item.tag_number}
+                </text>
+
+                {/* Rating / live data */}
+                {item.rating && (
+                  <text x={0} y={55} textAnchor="middle" fill="hsl(215, 15%, 55%)" fontSize="9" fontFamily="IBM Plex Mono">
+                    {item.rating} {item.rating_unit ?? ""}
+                  </text>
+                )}
+
+                {/* Status text */}
+                <text x={0} y={item.rating ? 67 : 55} textAnchor="middle" fill={color} fontSize="8" fontFamily="IBM Plex Mono" fontWeight="bold">
+                  {item.status.toUpperCase()}
+                </text>
+
+                {/* Invisible hit area for easier clicking */}
+                <rect x={-35} y={-35} width={70} height={105} fill="transparent" />
+              </g>
+            );
+          })}
+
+          {/* Minimap background reference */}
+          <rect x={0} y={0} width={CANVAS_W} height={CANVAS_H} fill="none" stroke="hsl(215, 15%, 20%)" strokeWidth="1" strokeDasharray="8 4" />
         </svg>
+      </div>
+
+      {/* Status legend */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] font-mono">
+        {Object.entries(statusColors).map(([status, color]) => (
+          <div key={status} className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+            <span className="text-muted-foreground capitalize">{status}</span>
+          </div>
+        ))}
+        <span className="text-muted-foreground/50 ml-2">Double-click to open details</span>
       </div>
     </div>
   );
