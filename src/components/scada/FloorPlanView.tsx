@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ZoomIn, ZoomOut, Maximize2, Lock, Unlock, Zap, CircleDot, ToggleRight, Cable, Cpu, SunMedium, PanelTop, Gauge, Activity, Cog } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, Unlock, Zap, CircleDot, ToggleRight, Cable, Cpu, SunMedium, PanelTop, Gauge, Activity, Cog } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useMarkerStore, type MarkerConfig } from "@/hooks/useMarkerStore";
+import { useConfigMode } from "@/hooks/useConfigMode";
 
 const typeColor: Record<string, string> = {
   generator: "bg-scada-green",
@@ -74,8 +74,8 @@ function MarkerShape({ marker, color, glow, editMode, children }: {
 
 export function FloorPlanView() {
   const navigate = useNavigate();
+  const { configMode } = useConfigMode();
   const [zoom, setZoom] = useState(100);
-  const [editMode, setEditMode] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -133,7 +133,7 @@ export function FloorPlanView() {
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent, marker: MarkerConfig) => {
-      if (!editMode) return;
+      if (!configMode) return;
       e.preventDefault();
       e.stopPropagation();
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -145,7 +145,7 @@ export function FloorPlanView() {
         startTop: marker.top,
       };
     },
-    [editMode]
+    [configMode]
   );
 
   const handlePointerMove = useCallback(
@@ -176,10 +176,10 @@ export function FloorPlanView() {
 
   const handleMarkerClick = useCallback(
     (marker: MarkerConfig) => {
-      if (editMode) return;
+      if (configMode) return;
       navigate(`/equipment/${marker.equipmentId}`);
     },
-    [editMode, navigate]
+    [configMode, navigate]
   );
 
   return (
@@ -187,16 +187,6 @@ export function FloorPlanView() {
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold uppercase tracking-wider">Floor Plan Layout</h3>
         <div className="flex items-center gap-1">
-          <Button
-            variant={editMode ? "default" : "ghost"}
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setEditMode(!editMode)}
-            title={editMode ? "Lock markers" : "Unlock markers for dragging"}
-          >
-            {editMode ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-          </Button>
-          <div className="w-px h-4 bg-border mx-1" />
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom((z) => Math.max(50, z - 25))}>
             <ZoomOut className="w-3.5 h-3.5" />
           </Button>
@@ -210,10 +200,10 @@ export function FloorPlanView() {
         </div>
       </div>
 
-      {editMode && (
+      {configMode && (
         <div className="flex items-center gap-2 mb-3 px-2 py-1.5 rounded bg-scada-amber/10 border border-scada-amber/30">
           <Unlock className="w-3 h-3 text-scada-amber" />
-          <span className="text-xs font-mono text-scada-amber">Edit mode — drag markers to reposition (saved to Cloud)</span>
+          <span className="text-xs font-mono text-scada-amber">Configuration mode — drag markers to reposition</span>
         </div>
       )}
 
@@ -257,7 +247,7 @@ export function FloorPlanView() {
               return (
                 <div
                   key={marker.id}
-                  className={`absolute z-10 group ${editMode ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
+                  className={`absolute z-10 group ${configMode ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
                   style={{
                     left: `${marker.left}%`,
                     top: `${marker.top}%`,
@@ -267,7 +257,7 @@ export function FloorPlanView() {
                   onPointerDown={(e) => handlePointerDown(e, marker)}
                   onClick={() => handleMarkerClick(marker)}
                 >
-                  <MarkerShape marker={marker} color={color} glow={glow} editMode={editMode}>
+                  <MarkerShape marker={marker} color={color} glow={glow} editMode={configMode}>
                     <Icon className="w-3.5 h-3.5 text-background" />
                   </MarkerShape>
 
@@ -277,7 +267,7 @@ export function FloorPlanView() {
                   </div>
 
                   {/* Hover tooltip */}
-                  {!editMode && (
+                  {!configMode && (
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block pointer-events-none">
                       <div className="bg-card border border-border rounded px-2 py-1.5 shadow-lg whitespace-nowrap">
                         <p className="text-xs font-mono font-bold text-foreground">{marker.label}</p>
@@ -287,7 +277,7 @@ export function FloorPlanView() {
                   )}
 
                   {/* Edit mode coords */}
-                  {editMode && (
+                  {configMode && (
                     <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 pointer-events-none">
                       <div className="bg-card border border-border rounded px-1.5 py-0.5 shadow-lg whitespace-nowrap">
                         <p className="text-[9px] font-mono text-muted-foreground">

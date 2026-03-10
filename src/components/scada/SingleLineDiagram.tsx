@@ -1,14 +1,15 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useEquipment, useUpdateEquipment, useEquipmentConnections, useCreateConnection } from "@/hooks/useEquipment";
+import { useConfigMode } from "@/hooks/useConfigMode";
 import { getSymbolComponent, statusColors, statusGlowFilters, getStatusGlowFilter } from "./sld/SLDSymbols";
 import { autoLayout } from "./sld/SLDAutoLayout";
 import { Button } from "@/components/ui/button";
 import {
-  ZoomIn, ZoomOut, Maximize2, Lock, Unlock, LayoutGrid, Cable, MousePointer,
+  ZoomIn, ZoomOut, Maximize2, Unlock, LayoutGrid, Cable, MousePointer,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Equipment, EquipmentConnection } from "@/hooks/useEquipment";
+import type { Equipment } from "@/hooks/useEquipment";
 
 type Mode = "select" | "move" | "connect";
 
@@ -17,6 +18,7 @@ const CANVAS_H = 900;
 
 export function SingleLineDiagram() {
   const navigate = useNavigate();
+  const { configMode } = useConfigMode();
   const { data: equipment = [] } = useEquipment();
   const { data: connections = [] } = useEquipmentConnections();
   const updateEquipment = useUpdateEquipment();
@@ -27,7 +29,9 @@ export function SingleLineDiagram() {
 
   // View state
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: CANVAS_W, h: CANVAS_H });
-  const [mode, setMode] = useState<Mode>("select");
+  // Mode is always "select" when configMode is off
+  const [internalMode, setInternalMode] = useState<Mode>("select");
+  const mode = configMode ? internalMode : "select";
 
   // Drag state
   const [dragNode, setDragNode] = useState<string | null>(null);
@@ -243,32 +247,40 @@ export function SingleLineDiagram() {
       {/* Toolbar */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-1">
-          {([
-            { id: "select" as Mode, icon: MousePointer, label: "Select" },
-            { id: "move" as Mode, icon: Lock, label: "Move" },
-            { id: "connect" as Mode, icon: Cable, label: "Connect" },
-          ]).map((btn) => (
-            <Button
-              key={btn.id}
-              variant={mode === btn.id ? "default" : "ghost"}
-              size="sm"
-              className="h-7 gap-1.5 text-xs font-mono"
-              onClick={() => {
-                setMode(btn.id);
-                setConnectFrom(null);
-                setConnectMouse(null);
-                setDragNode(null);
-              }}
-            >
-              <btn.icon className="w-3.5 h-3.5" />
-              {btn.label}
-            </Button>
-          ))}
-          <div className="w-px h-5 bg-border mx-1" />
-          <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs font-mono" onClick={handleAutoLayout}>
-            <LayoutGrid className="w-3.5 h-3.5" />
-            Auto Layout
-          </Button>
+          <h3 className="text-sm font-semibold uppercase tracking-wider mr-2">Single Line Diagram</h3>
+          {configMode && (
+            <>
+              {([
+                { id: "select" as Mode, icon: MousePointer, label: "Select" },
+                { id: "move" as Mode, icon: Unlock, label: "Move" },
+                { id: "connect" as Mode, icon: Cable, label: "Connect" },
+              ]).map((btn) => {
+                const Icon = btn.icon;
+                return (
+                  <Button
+                    key={btn.id}
+                    variant={mode === btn.id ? "default" : "ghost"}
+                    size="sm"
+                    className="h-7 gap-1.5 text-xs font-mono"
+                    onClick={() => {
+                      setInternalMode(btn.id);
+                      setConnectFrom(null);
+                      setConnectMouse(null);
+                      setDragNode(null);
+                    }}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {btn.label}
+                  </Button>
+                );
+              })}
+              <div className="w-px h-5 bg-border mx-1" />
+              <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs font-mono" onClick={handleAutoLayout}>
+                <LayoutGrid className="w-3.5 h-3.5" />
+                Auto Layout
+              </Button>
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-1">
