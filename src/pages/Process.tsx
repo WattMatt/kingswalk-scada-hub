@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useEquipment, useEquipmentConnections } from "@/hooks/useEquipment";
+
 import { ScadaLayout } from "@/components/scada/ScadaLayout";
 import { FloorPlanView } from "@/components/scada/FloorPlanView";
 import { SingleLineDiagram } from "@/components/scada/SingleLineDiagram";
