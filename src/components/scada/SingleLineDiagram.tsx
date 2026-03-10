@@ -25,6 +25,13 @@ export function SingleLineDiagram() {
   const updateEquipment = useUpdateEquipment();
   const createConnection = useCreateConnection();
 
+  // Simulated live sensor readings
+  const sensorInput = useMemo(() =>
+    equipment.map((e) => ({ id: e.id, type: e.type, status: e.status, rating: e.rating })),
+    [equipment]
+  );
+  const sensorReadings = useSimulatedSensors(sensorInput);
+
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
