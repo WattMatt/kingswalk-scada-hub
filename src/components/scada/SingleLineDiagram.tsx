@@ -432,7 +432,7 @@ export function SingleLineDiagram() {
           `}} />
 
           {/* Connection lines */}
-          {connections.map((conn) => {
+          {visibleConnections.map((conn) => {
             const from = positions.get(conn.from_equipment_id);
             const to = positions.get(conn.to_equipment_id);
             if (!from || !to) return null;
