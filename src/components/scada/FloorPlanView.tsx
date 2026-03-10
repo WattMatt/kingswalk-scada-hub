@@ -187,16 +187,6 @@ export function FloorPlanView() {
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold uppercase tracking-wider">Floor Plan Layout</h3>
         <div className="flex items-center gap-1">
-          <Button
-            variant={editMode ? "default" : "ghost"}
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setEditMode(!editMode)}
-            title={editMode ? "Lock markers" : "Unlock markers for dragging"}
-          >
-            {editMode ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-          </Button>
-          <div className="w-px h-4 bg-border mx-1" />
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom((z) => Math.max(50, z - 25))}>
             <ZoomOut className="w-3.5 h-3.5" />
           </Button>
@@ -210,10 +200,10 @@ export function FloorPlanView() {
         </div>
       </div>
 
-      {editMode && (
+      {configMode && (
         <div className="flex items-center gap-2 mb-3 px-2 py-1.5 rounded bg-scada-amber/10 border border-scada-amber/30">
           <Unlock className="w-3 h-3 text-scada-amber" />
-          <span className="text-xs font-mono text-scada-amber">Edit mode — drag markers to reposition (saved to Cloud)</span>
+          <span className="text-xs font-mono text-scada-amber">Configuration mode — drag markers to reposition</span>
         </div>
       )}
 
