@@ -133,7 +133,7 @@ export function FloorPlanView() {
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent, marker: MarkerConfig) => {
-      if (!editMode) return;
+      if (!configMode) return;
       e.preventDefault();
       e.stopPropagation();
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
