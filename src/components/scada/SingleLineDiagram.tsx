@@ -647,6 +647,29 @@ export function SingleLineDiagram() {
                   {item.status.toUpperCase()}
                 </text>
 
+                {/* Collapsed group badge — show on anchor nodes */}
+                {(() => {
+                  const group = SLD_GROUPS.find((g) => g.anchorTag === item.tag_number);
+                  if (!group || !collapsedGroups.has(group.id)) return null;
+                  const count = groupCounts.get(group.id) || 0;
+                  return (
+                    <g
+                      className="cursor-pointer"
+                      onClick={(e) => { e.stopPropagation(); toggleGroup(group.id); }}
+                    >
+                      <rect x={-40} y={130} width={80} height={20} rx={4}
+                        fill={group.color} fillOpacity="0.15"
+                        stroke={group.color} strokeWidth="1" strokeOpacity="0.4" />
+                      <text x={0} y={143} textAnchor="middle" fill={group.color} fontSize="8" fontFamily="IBM Plex Mono" fontWeight="bold">
+                        {group.label} ({count})
+                      </text>
+                      <text x={0} y={155} textAnchor="middle" fill="hsl(215, 15%, 50%)" fontSize="7" fontFamily="IBM Plex Mono">
+                        click to expand
+                      </text>
+                    </g>
+                  );
+                })()}
+
                 {/* Invisible hit area for easier clicking */}
                 <rect x={-45} y={-35} width={90} height={168} fill="transparent" />
               </g>
