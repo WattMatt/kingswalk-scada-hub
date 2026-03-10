@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useEquipment, useUpdateEquipment, useEquipmentConnections, useCreateConnection } from "@/hooks/useEquipment";
 import { useConfigMode } from "@/hooks/useConfigMode";
+import { useSimulatedSensors } from "@/hooks/useSimulatedSensors";
 import { getSymbolComponent, statusColors, statusGlowFilters, getStatusGlowFilter } from "./sld/SLDSymbols";
 import { autoLayout } from "./sld/SLDAutoLayout";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,13 @@ export function SingleLineDiagram() {
   const { data: connections = [] } = useEquipmentConnections();
   const updateEquipment = useUpdateEquipment();
   const createConnection = useCreateConnection();
+
+  // Simulated live sensor readings
+  const sensorInput = useMemo(() =>
+    equipment.map((e) => ({ id: e.id, type: e.type, status: e.status, rating: e.rating })),
+    [equipment]
+  );
+  const sensorReadings = useSimulatedSensors(sensorInput);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -464,20 +472,49 @@ export function SingleLineDiagram() {
                   {item.tag_number}
                 </text>
 
-                {/* Rating / live data */}
-                {item.rating && (
-                  <text x={0} y={55} textAnchor="middle" fill="hsl(215, 15%, 55%)" fontSize="9" fontFamily="IBM Plex Mono">
-                    {item.rating} {item.rating_unit ?? ""}
-                  </text>
-                )}
+                {/* Live sensor data panel */}
+                {(() => {
+                  const reading = sensorReadings.get(item.id);
+                  if (!reading) return null;
+                  const isZero = reading.kw === 0 && reading.voltage === 0;
+                  return (
+                    <g>
+                      {/* Background panel */}
+                      <rect x={-42} y={50} width={84} height={42} rx={4}
+                        fill="hsl(220, 18%, 10%)" fillOpacity="0.85"
+                        stroke="hsl(215, 15%, 25%)" strokeWidth="0.5" />
+                      {/* kW */}
+                      <text x={-36} y={63} fill={isZero ? "hsl(215, 15%, 40%)" : "#22c55e"} fontSize="9" fontFamily="IBM Plex Mono" fontWeight="bold">
+                        {reading.kw.toFixed(1)}
+                      </text>
+                      <text x={8} y={63} fill="hsl(215, 15%, 50%)" fontSize="7" fontFamily="IBM Plex Mono">kW</text>
+                      {/* Voltage */}
+                      <text x={-36} y={74} fill={isZero ? "hsl(215, 15%, 40%)" : "hsl(43, 96%, 56%)"} fontSize="8" fontFamily="IBM Plex Mono">
+                        {reading.voltage.toFixed(0)}V
+                      </text>
+                      {/* Current */}
+                      <text x={4} y={74} fill={isZero ? "hsl(215, 15%, 40%)" : "hsl(199, 89%, 48%)"} fontSize="8" fontFamily="IBM Plex Mono">
+                        {reading.current.toFixed(1)}A
+                      </text>
+                      {/* PF */}
+                      <text x={-36} y={86} fill="hsl(215, 15%, 50%)" fontSize="7" fontFamily="IBM Plex Mono">
+                        PF {reading.powerFactor.toFixed(2)}
+                      </text>
+                      {/* Hz */}
+                      <text x={10} y={86} fill="hsl(215, 15%, 50%)" fontSize="7" fontFamily="IBM Plex Mono">
+                        {reading.frequency.toFixed(1)}Hz
+                      </text>
+                    </g>
+                  );
+                })()}
 
                 {/* Status text */}
-                <text x={0} y={item.rating ? 67 : 55} textAnchor="middle" fill={color} fontSize="8" fontFamily="IBM Plex Mono" fontWeight="bold">
+                <text x={0} y={102} textAnchor="middle" fill={color} fontSize="8" fontFamily="IBM Plex Mono" fontWeight="bold">
                   {item.status.toUpperCase()}
                 </text>
 
                 {/* Invisible hit area for easier clicking */}
-                <rect x={-35} y={-35} width={70} height={105} fill="transparent" />
+                <rect x={-45} y={-35} width={90} height={145} fill="transparent" />
               </g>
             );
           })}
