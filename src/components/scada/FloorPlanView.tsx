@@ -277,7 +277,7 @@ export function FloorPlanView() {
                   )}
 
                   {/* Edit mode coords */}
-                  {editMode && (
+                  {configMode && (
                     <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 pointer-events-none">
                       <div className="bg-card border border-border rounded px-1.5 py-0.5 shadow-lg whitespace-nowrap">
                         <p className="text-[9px] font-mono text-muted-foreground">
