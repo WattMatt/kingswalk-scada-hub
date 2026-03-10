@@ -257,7 +257,7 @@ export function FloorPlanView() {
                   onPointerDown={(e) => handlePointerDown(e, marker)}
                   onClick={() => handleMarkerClick(marker)}
                 >
-                  <MarkerShape marker={marker} color={color} glow={glow} editMode={editMode}>
+                  <MarkerShape marker={marker} color={color} glow={glow} editMode={configMode}>
                     <Icon className="w-3.5 h-3.5 text-background" />
                   </MarkerShape>
 
