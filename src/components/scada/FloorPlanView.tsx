@@ -176,10 +176,10 @@ export function FloorPlanView() {
 
   const handleMarkerClick = useCallback(
     (marker: MarkerConfig) => {
-      if (editMode) return;
+      if (configMode) return;
       navigate(`/equipment/${marker.equipmentId}`);
     },
-    [editMode, navigate]
+    [configMode, navigate]
   );
 
   return (
