@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-
+import { useState, useEffect, useRef, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
 export interface SensorReading {
   kw: number;
   voltage: number;
@@ -56,6 +56,7 @@ export function useSimulatedSensors(equipmentList: EquipmentInfo[], intervalMs =
   const [kwHistory, setKwHistory] = useState<Map<string, number[]>>(new Map());
   const basesRef = useRef<Map<string, SensorReading>>(new Map());
   const historyRef = useRef<Map<string, number[]>>(new Map());
+  const tickCountRef = useRef(0);
 
   // Build stable base values once per equipment set
   useEffect(() => {
@@ -124,6 +125,34 @@ export function useSimulatedSensors(equipmentList: EquipmentInfo[], intervalMs =
       historyRef.current = newHistory;
       setReadings(newReadings);
       setKwHistory(new Map(newHistory));
+
+      // Persist to DB (fire-and-forget, every other tick to reduce writes)
+      tickCountRef.current += 1;
+      if (tickCountRef.current % 3 === 0) {
+        const rows: Array<{
+          equipment_id: string;
+          kw: number;
+          voltage: number;
+          current: number;
+          power_factor: number;
+          frequency: number;
+        }> = [];
+        newReadings.forEach((r, eqId) => {
+          rows.push({
+            equipment_id: eqId,
+            kw: r.kw,
+            voltage: r.voltage,
+            current: r.current,
+            power_factor: r.powerFactor,
+            frequency: r.frequency,
+          });
+        });
+        if (rows.length > 0) {
+          supabase.from("sensor_readings").insert(rows).then(({ error }) => {
+            if (error) console.warn("Sensor persist error:", error.message);
+          });
+        }
+      }
     }
 
     tick();

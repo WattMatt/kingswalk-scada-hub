@@ -181,6 +181,47 @@ export type Database = {
           },
         ]
       }
+      sensor_readings: {
+        Row: {
+          current: number
+          equipment_id: string
+          frequency: number
+          id: string
+          kw: number
+          power_factor: number
+          recorded_at: string
+          voltage: number
+        }
+        Insert: {
+          current?: number
+          equipment_id: string
+          frequency?: number
+          id?: string
+          kw?: number
+          power_factor?: number
+          recorded_at?: string
+          voltage?: number
+        }
+        Update: {
+          current?: number
+          equipment_id?: string
+          frequency?: number
+          id?: string
+          kw?: number
+          power_factor?: number
+          recorded_at?: string
+          voltage?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sensor_readings_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
