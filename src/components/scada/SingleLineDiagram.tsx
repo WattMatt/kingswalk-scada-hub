@@ -5,9 +5,11 @@ import { useConfigMode } from "@/hooks/useConfigMode";
 import { useSimulatedSensors } from "@/hooks/useSimulatedSensors";
 import { getSymbolComponent, statusColors, statusGlowFilters, getStatusGlowFilter } from "./sld/SLDSymbols";
 import { autoLayout } from "./sld/SLDAutoLayout";
+import { SLD_GROUPS, getHiddenIds, getAnchorId, getGroupCounts, getEquipmentGroup } from "./sld/SLDGroups";
 import { Button } from "@/components/ui/button";
 import {
   ZoomIn, ZoomOut, Maximize2, Unlock, LayoutGrid, Cable, MousePointer,
+  ChevronDown, ChevronRight, Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Equipment } from "@/hooks/useEquipment";
