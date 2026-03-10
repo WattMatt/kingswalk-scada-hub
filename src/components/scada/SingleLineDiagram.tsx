@@ -512,9 +512,21 @@ export function SingleLineDiagram() {
 
           {/* Connection lines */}
           {visibleConnections.map((conn) => {
-            const from = positions.get(conn.from_equipment_id);
-            const to = positions.get(conn.to_equipment_id);
-            if (!from || !to) return null;
+            const fromRaw = positions.get(conn.from_equipment_id);
+            const toRaw = positions.get(conn.to_equipment_id);
+            if (!fromRaw || !toRaw) return null;
+
+            // Snap connection endpoints to busbar surface
+            const fromExtent = busbarExtents.get(conn.from_equipment_id);
+            const toExtent = busbarExtents.get(conn.to_equipment_id);
+            const BAR_H = 14;
+
+            const from = fromExtent
+              ? { x: Math.max(fromExtent.left, Math.min(fromExtent.right, toRaw.x)), y: fromRaw.y + (toRaw.y > fromRaw.y ? BAR_H / 2 : -BAR_H / 2) }
+              : { ...fromRaw };
+            const to = toExtent
+              ? { x: Math.max(toExtent.left, Math.min(toExtent.right, fromRaw.x)), y: toRaw.y + (fromRaw.y > toRaw.y ? BAR_H / 2 : -BAR_H / 2) }
+              : { ...toRaw };
 
             const isHighlighted = selectedId === conn.from_equipment_id || selectedId === conn.to_equipment_id;
 
