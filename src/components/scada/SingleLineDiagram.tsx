@@ -89,6 +89,9 @@ export function SingleLineDiagram() {
     [equipment]
   );
 
+  // Tags that should render as spanning horizontal busbars
+  const BUSBAR_TAGS = new Set(["BUS-LV", "BUS-SB"]);
+
   // Anchor ID lookup for collapsed groups
   const anchorIdMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -156,6 +159,49 @@ export function SingleLineDiagram() {
 
     return map;
   }, [equipment, connections]);
+
+  // Compute busbar extents — each busbar spans from leftmost to rightmost connected equipment
+  const busbarExtents = useMemo(() => {
+    const extents = new Map<string, { left: number; right: number }>();
+    const busEquip = equipment.filter((e) => e.type === "bus" && BUSBAR_TAGS.has(e.tag_number));
+
+    for (const bus of busEquip) {
+      const busPos = positions.get(bus.id);
+      if (!busPos) continue;
+
+      // Find all visible equipment connected to this bus
+      const connectedIds = new Set<string>();
+      for (const c of visibleConnections) {
+        if (c.from_equipment_id === bus.id) connectedIds.add(c.to_equipment_id);
+        if (c.to_equipment_id === bus.id) connectedIds.add(c.from_equipment_id);
+      }
+
+      let minX = busPos.x;
+      let maxX = busPos.x;
+      const BAR_PADDING = 60;
+
+      connectedIds.forEach((id) => {
+        const p = positions.get(id);
+        if (p) {
+          minX = Math.min(minX, p.x);
+          maxX = Math.max(maxX, p.x);
+        }
+      });
+
+      // Add padding, ensure minimum width
+      const left = minX - BAR_PADDING;
+      const right = maxX + BAR_PADDING;
+      const minWidth = 200;
+      if (right - left < minWidth) {
+        const center = (left + right) / 2;
+        extents.set(bus.id, { left: center - minWidth / 2, right: center + minWidth / 2 });
+      } else {
+        extents.set(bus.id, { left, right });
+      }
+    }
+
+    return extents;
+  }, [equipment, positions, visibleConnections]);
 
   // SVG coordinate helpers
   const svgPoint = useCallback((clientX: number, clientY: number) => {
@@ -466,9 +512,21 @@ export function SingleLineDiagram() {
 
           {/* Connection lines */}
           {visibleConnections.map((conn) => {
-            const from = positions.get(conn.from_equipment_id);
-            const to = positions.get(conn.to_equipment_id);
-            if (!from || !to) return null;
+            const fromRaw = positions.get(conn.from_equipment_id);
+            const toRaw = positions.get(conn.to_equipment_id);
+            if (!fromRaw || !toRaw) return null;
+
+            // Snap connection endpoints to busbar surface
+            const fromExtent = busbarExtents.get(conn.from_equipment_id);
+            const toExtent = busbarExtents.get(conn.to_equipment_id);
+            const BAR_H = 14;
+
+            const from = fromExtent
+              ? { x: Math.max(fromExtent.left, Math.min(fromExtent.right, toRaw.x)), y: fromRaw.y + (toRaw.y > fromRaw.y ? BAR_H / 2 : -BAR_H / 2) }
+              : { ...fromRaw };
+            const to = toExtent
+              ? { x: Math.max(toExtent.left, Math.min(toExtent.right, fromRaw.x)), y: toRaw.y + (fromRaw.y > toRaw.y ? BAR_H / 2 : -BAR_H / 2) }
+              : { ...toRaw };
 
             const isHighlighted = selectedId === conn.from_equipment_id || selectedId === conn.to_equipment_id;
 
@@ -547,7 +605,94 @@ export function SingleLineDiagram() {
             const isSelected = selectedId === item.id;
             const isConnectSource = connectFrom === item.id;
             const glowFilter = getStatusGlowFilter(item.status);
+            const barExtent = busbarExtents.get(item.id);
 
+            // === Spanning busbar rendering ===
+            if (barExtent && item.type === "bus") {
+              const barW = barExtent.right - barExtent.left;
+              const barH = 14;
+              const barLeft = barExtent.left - pos.x;
+
+              return (
+                <g
+                  key={item.id}
+                  data-sld-node
+                  transform={`translate(${pos.x}, ${pos.y})`}
+                  className={mode === "move" ? "cursor-grab" : mode === "connect" ? "cursor-crosshair" : "cursor-pointer"}
+                  onMouseDown={(e) => handleNodeMouseDown(e, item)}
+                  onDoubleClick={() => handleNodeDoubleClick(item)}
+                >
+                  {/* Selection highlight */}
+                  {(isSelected || isConnectSource) && (
+                    <rect
+                      x={barLeft - 4} y={-barH / 2 - 4} width={barW + 8} height={barH + 8} rx={4}
+                      fill="none" stroke={isConnectSource ? "#22c55e" : "hsl(var(--primary))"} strokeWidth="2" strokeDasharray="4 3"
+                    >
+                      <animate attributeName="stroke-dashoffset" from="0" to="14" dur="2s" repeatCount="indefinite" />
+                    </rect>
+                  )}
+
+                  {/* Glow */}
+                  {glowFilter && (
+                    <rect x={barLeft - 6} y={-barH / 2 - 6} width={barW + 12} height={barH + 12} rx={4}
+                      fill={color} opacity="0.12" filter={glowFilter} />
+                  )}
+
+                  {/* Busbar body — thick copper-style bar */}
+                  <rect
+                    x={barLeft} y={-barH / 2} width={barW} height={barH} rx={3}
+                    fill={color} fillOpacity="0.85"
+                  />
+                  <rect
+                    x={barLeft} y={-barH / 2} width={barW} height={barH} rx={3}
+                    fill="none" stroke={color} strokeWidth="1.5"
+                  />
+                  {/* Inner highlight stripe */}
+                  <rect
+                    x={barLeft + 2} y={-barH / 2 + 2} width={barW - 4} height={3} rx={1}
+                    fill="white" fillOpacity="0.15"
+                  />
+
+                  {/* Connection tick marks on the bar */}
+                  {(() => {
+                    const connectedXs: number[] = [];
+                    for (const c of visibleConnections) {
+                      const otherId = c.from_equipment_id === item.id ? c.to_equipment_id : c.to_equipment_id === item.id ? c.from_equipment_id : null;
+                      if (otherId) {
+                        const otherPos = positions.get(otherId);
+                        if (otherPos) connectedXs.push(Math.max(barExtent.left, Math.min(barExtent.right, otherPos.x)) - pos.x);
+                      }
+                    }
+                    return connectedXs.map((tx, i) => (
+                      <line key={i} x1={tx} y1={-barH / 2 - 3} x2={tx} y2={barH / 2 + 3}
+                        stroke={color} strokeWidth="2" opacity="0.6" />
+                    ));
+                  })()}
+
+                  {/* Tag label — centered on bar */}
+                  <text x={0} y={barH / 2 + 16} textAnchor="middle" fill="hsl(210, 20%, 85%)" fontSize="11" fontFamily="IBM Plex Mono" fontWeight="bold">
+                    {item.tag_number}
+                  </text>
+
+                  {/* Status text */}
+                  <text x={0} y={barH / 2 + 28} textAnchor="middle" fill={color} fontSize="8" fontFamily="IBM Plex Mono" fontWeight="bold">
+                    {item.status.toUpperCase()}
+                  </text>
+
+                  {/* Status dot */}
+                  <circle cx={barExtent.right - pos.x + 12} cy={0} r={5} fill={color} stroke="hsl(220, 18%, 10%)" strokeWidth="2">
+                    {item.status === "online" && (
+                      <animate attributeName="r" values="5;6;5" dur="2s" repeatCount="indefinite" />
+                    )}
+                  </circle>
+
+                  {/* Invisible hit area */}
+                  <rect x={barLeft - 10} y={-25} width={barW + 20} height={70} fill="transparent" />
+                </g>
+              );
+            }
+
+            // === Standard point-node rendering ===
             return (
               <g
                 key={item.id}
