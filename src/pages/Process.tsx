@@ -15,8 +15,6 @@ const tabs = [
 type TabId = (typeof tabs)[number]["id"];
 
 const Process = () => {
-  const { data: dbEquipment = [] } = useEquipment();
-  const { data: connections = [] } = useEquipmentConnections();
   const [activeTab, setActiveTab] = useState<TabId>("floorplan");
 
   return (
