@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ConfigModeProvider } from "@/hooks/useConfigMode";
 import Index from "./pages/Index.tsx";
 import Process from "./pages/Process.tsx";
+import FloorPlan from "./pages/FloorPlan.tsx";
 import Alarms from "./pages/Alarms.tsx";
 import Generators from "./pages/Generators.tsx";
 import EquipmentRegistry from "./pages/EquipmentRegistry.tsx";
@@ -25,6 +26,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/process" element={<Process />} />
+            <Route path="/floorplan" element={<FloorPlan />} />
             <Route path="/alarms" element={<Alarms />} />
             <Route path="/generators" element={<Generators />} />
             <Route path="/equipment" element={<EquipmentRegistry />} />

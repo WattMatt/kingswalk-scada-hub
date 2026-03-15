@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ZoomIn, ZoomOut, Maximize2, Unlock, Zap, CircleDot, ToggleRight, Cable, Cpu, SunMedium, PanelTop, Gauge, Activity, Cog } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -76,12 +76,8 @@ export function FloorPlanView() {
   const navigate = useNavigate();
   const { configMode } = useConfigMode();
   const [zoom, setZoom] = useState(100);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
-  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { markers, updateMarkerPosition } = useMarkerStore();
 
   const dragRef = useRef<{
@@ -91,45 +87,6 @@ export function FloorPlanView() {
     startLeft: number;
     startTop: number;
   } | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function renderPdf() {
-      try {
-        setLoading(true);
-        setError(null);
-        const pdfJS = await import("pdfjs-dist");
-        pdfJS.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfJS.version}/build/pdf.worker.min.mjs`;
-        const pdf = await pdfJS.getDocument("/floor-plan.pdf").promise;
-        const page = await pdf.getPage(1);
-        const canvas = canvasRef.current;
-        const container = containerRef.current;
-        if (!canvas || !container || cancelled) return;
-        const containerWidth = container.clientWidth;
-        const unscaledViewport = page.getViewport({ scale: 1 });
-        const baseScale = containerWidth / unscaledViewport.width;
-        const scale = baseScale * (zoom / 100);
-        const viewport = page.getViewport({ scale });
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-        await page.render({ canvasContext: ctx, viewport }).promise;
-        if (!cancelled) {
-          setCanvasSize({ width: viewport.width, height: viewport.height });
-          setLoading(false);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error("PDF render error:", err);
-          setError("Failed to load floor plan");
-          setLoading(false);
-        }
-      }
-    }
-    renderPdf();
-    return () => { cancelled = true; };
-  }, [zoom]);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent, marker: MarkerConfig) => {
@@ -151,12 +108,6 @@ export function FloorPlanView() {
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
       if (!dragRef.current || !overlayRef.current) return;
-      const overlay = overlayRef.current;
-      const rect = overlay.getBoundingClientRect();
-      const dx = e.clientX - dragRef.current.startX;
-      const dy = e.clientY - dragRef.current.startY;
-      const newLeft = Math.max(0, Math.min(100, dragRef.current.startLeft + (dx / rect.width) * 100));
-      const newTop = Math.max(0, Math.min(100, dragRef.current.startTop + (dy / rect.height) * 100));
       // Debounce: only update on pointer up for DB writes
     },
     []
@@ -217,29 +168,27 @@ export function FloorPlanView() {
         ))}
       </div>
 
-      <div className="flex-1 flex gap-0 overflow-hidden">
+      <div className="flex-1 flex gap-0 overflow-hidden relative">
         <div ref={containerRef} className="flex-1 relative rounded border border-border overflow-auto scada-grid-bg">
-          {loading && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-sm font-mono text-muted-foreground animate-pulse">Loading floor plan...</span>
-            </div>
-          )}
-          {error && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-sm font-mono text-destructive">{error}</span>
-            </div>
-          )}
           <div
             ref={overlayRef}
             className="relative inline-block"
-            style={{ width: canvasSize.width || "100%", height: canvasSize.height || "auto" }}
+            style={{ width: `${zoom}%`, height: "auto", transition: "width 0.2s ease-out" }}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerLeave={handlePointerUp}
           >
-            <canvas ref={canvasRef} className="block" />
+            <img 
+              src="/floor-plan.png" 
+              alt="Floor Plan" 
+              className="block w-full h-auto pointer-events-none"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.parentElement!.innerHTML += '<div class="flex items-center justify-center h-64 border-2 border-dashed border-border rounded-md m-4"><p class="text-muted-foreground font-mono">Missing /floor-plan.png in public folder</p></div>';
+              }}
+            />
 
-            {!loading && markers.map((marker) => {
+            {markers.map((marker) => {
               const color = typeColor[marker.type] || typeColor.custom;
               const glow = statusGlow.online || "";
               const Icon = typeIcon[marker.type] || CircleDot;
@@ -269,7 +218,7 @@ export function FloorPlanView() {
                   {/* Hover tooltip */}
                   {!configMode && (
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block pointer-events-none">
-                      <div className="bg-card border border-border rounded px-2 py-1.5 shadow-lg whitespace-nowrap">
+                      <div className="bg-card border border-border rounded px-2 py-1.5 shadow-lg whitespace-nowrap z-50">
                         <p className="text-xs font-mono font-bold text-foreground">{marker.label}</p>
                         <p className="text-[10px] font-mono text-muted-foreground capitalize">{marker.type} • Click to open</p>
                       </div>

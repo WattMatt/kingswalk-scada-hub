@@ -1,6 +1,6 @@
 import {
   LayoutDashboard,
-  Activity,
+  Activity, Map as MapIcon,
   AlertTriangle,
   Zap,
   Database,
@@ -25,6 +25,7 @@ import {
 const navItems = [
   { title: "Overview", url: "/", icon: LayoutDashboard },
   { title: "Process", url: "/process", icon: Activity },
+  { title: "Floor Plan", url: "/floorplan", icon: MapIcon },
   { title: "Alarms", url: "/alarms", icon: AlertTriangle },
   { title: "Generators", url: "/generators", icon: Zap },
   { title: "Equipment", url: "/equipment", icon: Database },
